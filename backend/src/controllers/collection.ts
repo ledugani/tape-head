@@ -62,7 +62,11 @@ export const addToCollection = async (req: Request<{}, {}, CollectionInput>, res
 
 export const getUserCollection = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    // Validate that user ID exists from auth middleware
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+    }
     
     const userCollection = await prisma.userCollection.findMany({
       where: {
@@ -73,9 +77,10 @@ export const getUserCollection = async (req: Request, res: Response) => {
       }
     });
     
+    // Return the collection (empty array if no entries found)
     res.status(200).json(userCollection);
   } catch (error) {
     console.error('Error retrieving user collection:', error);
-    res.status(500).json({ error: 'Error retrieving user collection' });
+    res.status(500).json({ error: 'Internal server error while retrieving collection' });
   }
 }; 
