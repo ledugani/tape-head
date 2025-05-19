@@ -9,7 +9,12 @@ interface WantlistInput {
 
 export const addToWantlist = async (req: Request<{}, {}, WantlistInput>, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    // Check if user ID exists from auth middleware
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+    }
+
     const { tapeId, priority = 1, notes } = req.body;
 
     // Validate that tapeId is provided
@@ -61,6 +66,6 @@ export const addToWantlist = async (req: Request<{}, {}, WantlistInput>, res: Re
     res.status(201).json(wantlistEntry);
   } catch (error) {
     console.error('Error adding tape to wantlist:', error);
-    res.status(500).json({ error: 'Error adding tape to wantlist' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 }; 
