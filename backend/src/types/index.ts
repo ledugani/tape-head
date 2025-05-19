@@ -53,6 +53,12 @@ export interface LoginInput {
   password: string;
 }
 
+export interface CollectionInput {
+  tapeId: number;
+  condition?: string;
+  notes?: string;
+}
+
 export interface AuthResponse {
   token: string;
   user: Omit<User, 'passwordHash'>;

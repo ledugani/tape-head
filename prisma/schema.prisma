@@ -22,6 +22,17 @@ model User {
   wantlist      UserWantlist[]
 }
 
+model BoxSet {
+  id          Int      @id @default(autoincrement())
+  title       String
+  year        Int?
+  label       String?
+  coverImage  String?
+  description String?
+  createdAt   DateTime @default(now())
+  tapes       Tape[]   @relation("BoxSetTapes")
+}
+
 model Tape {
   id            Int              @id @default(autoincrement())
   title         String
@@ -30,6 +41,8 @@ model Tape {
   format        String?
   label         String?
   coverImage    String?
+  boxSetId      Int?
+  boxSet        BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   collections   UserCollection[]
