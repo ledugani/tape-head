@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import * as jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
@@ -42,10 +42,11 @@ async function main() {
       await axios.post(`${API_URL}/wantlist`, { tapeId: newTape.id });
       console.error('❌ Test failed: Unauthenticated request should return 401');
     } catch (error) {
-      if (error.response?.status === 401) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 401) {
         console.log('✅ Test passed: Unauthenticated request returned 401');
       } else {
-        console.error(`❌ Test failed: Expected 401, got ${error.response?.status}`);
+        console.error(`❌ Test failed: Expected 401, got ${axiosError.response?.status}`);
       }
     }
     
@@ -79,7 +80,8 @@ async function main() {
         console.error(`❌ Test failed: Expected 201, got ${response.status}`);
       }
     } catch (error) {
-      console.error('❌ Test failed: Could not add tape to wantlist', error.response?.data);
+      const axiosError = error as AxiosError;
+      console.error('❌ Test failed: Could not add tape to wantlist', axiosError.response?.data);
     }
     
     // Test 3: Add duplicate tape (should fail with 400)
@@ -92,10 +94,11 @@ async function main() {
       );
       console.error('❌ Test failed: Adding duplicate tape should return 400');
     } catch (error) {
-      if (error.response?.status === 400) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 400) {
         console.log('✅ Test passed: Adding duplicate tape returned 400');
       } else {
-        console.error(`❌ Test failed: Expected 400, got ${error.response?.status}`);
+        console.error(`❌ Test failed: Expected 400, got ${axiosError.response?.status}`);
       }
     }
     
@@ -110,10 +113,11 @@ async function main() {
       );
       console.error('❌ Test failed: Adding non-existent tape should return 404');
     } catch (error) {
-      if (error.response?.status === 404) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
         console.log('✅ Test passed: Adding non-existent tape returned 404');
       } else {
-        console.error(`❌ Test failed: Expected 404, got ${error.response?.status}`);
+        console.error(`❌ Test failed: Expected 404, got ${axiosError.response?.status}`);
       }
     }
     
