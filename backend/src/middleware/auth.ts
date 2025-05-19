@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 interface AuthRequest extends Request {
   user?: {
-    id: string;
+    id: number;
     email: string;
   };
 }
@@ -19,7 +19,7 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
       throw new Error();
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: number };
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: { id: true, email: true }
