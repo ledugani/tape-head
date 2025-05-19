@@ -58,4 +58,14 @@ export const addToCollection = async (req: Request<{}, {}, CollectionInput>, res
     console.error('Error adding tape to collection:', error);
     res.status(500).json({ error: 'Error adding tape to collection' });
   }
+};
+
+export const getUserCollection = async (req: Request, res: Response) => {
+  try {
+    // Controller logic will be implemented in the next step
+    res.status(501).json({ message: 'Not implemented yet' });
+  } catch (error) {
+    console.error('Error retrieving user collection:', error);
+    res.status(500).json({ error: 'Error retrieving user collection' });
+  }
 }; 
