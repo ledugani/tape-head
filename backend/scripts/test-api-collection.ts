@@ -1,11 +1,11 @@
-import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const API_URL = process.env.API_URL || 'http://localhost:3000/api';
 
 async function main() {
   try {
+    console.log('Running tests for collection functionality...');
+    
     // Get a test user
     const user = await prisma.user.findFirst();
     
@@ -13,6 +13,8 @@ async function main() {
       console.error("Missing test user. Please seed the database first.");
       return;
     }
+    
+    console.log(`Using test user: ${user.email} (ID: ${user.id})`);
     
     // Create a new test tape
     const newTape = await prisma.tape.create({
@@ -25,40 +27,76 @@ async function main() {
       }
     });
     
-    console.log('Created new test tape:', newTape.title);
-
-    // Login to get auth token
-    const loginResponse = await axios.post(`${API_URL}/auth/login`, {
-      email: 'test@example.com', // adjust if your test user has a different email
-      password: 'testpassword123' // adjust if your test user has a different password
-    });
-
-    const token = loginResponse.data.token;
-    console.log('Successfully logged in with test user');
-
-    // Add tape to collection using the API
-    const collectionResponse = await axios.post(
-      `${API_URL}/collection`,
-      {
+    console.log(`Created test tape: ${newTape.title} (ID: ${newTape.id})`);
+    
+    // Add tape to user's collection
+    const collectionEntry = await prisma.userCollection.create({
+      data: {
+        userId: user.id,
         tapeId: newTape.id,
         condition: "Brand New",
-        notes: "Created via API test"
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        notes: "Created for test"
       }
-    );
-
-    console.log('Tape added to collection successfully:');
-    console.log(JSON.stringify(collectionResponse.data, null, 2));
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('API Error:', error.response?.data || error.message);
+    });
+    
+    console.log(`Added tape to collection (ID: ${collectionEntry.id})`);
+    
+    // Test 1: Get user's collection
+    console.log('\n--- Test 1: Get user collection ---');
+    const userCollection = await prisma.userCollection.findMany({
+      where: {
+        userId: user.id
+      },
+      include: {
+        tape: true
+      }
+    });
+    
+    if (userCollection.length > 0) {
+      console.log(`✅ Test passed: Retrieved collection with ${userCollection.length} items`);
+      
+      // Check if the newly added tape is in the collection
+      const foundNewTape = userCollection.some(item => item.tapeId === newTape.id);
+      if (foundNewTape) {
+        console.log('✅ Test passed: Newly added tape found in collection');
+      } else {
+        console.error('❌ Test failed: Newly added tape not found in collection');
+      }
+      
+      // Check if tape details are included
+      const hasAllTapeDetails = userCollection.every(
+        entry => entry.tape && entry.tape.id && entry.tape.title
+      );
+      
+      if (hasAllTapeDetails) {
+        console.log('✅ Test passed: Collection entries include tape details');
+        console.log('Sample tape data:', userCollection[0].tape);
+      } else {
+        console.error('❌ Test failed: Some collection entries missing tape details');
+      }
     } else {
-      console.error('Error:', error);
+      console.error('❌ Test failed: Collection is empty');
     }
+    
+    // Clean up - remove the test collection entry
+    await prisma.userCollection.delete({
+      where: {
+        id: collectionEntry.id
+      }
+    });
+    console.log(`Cleaned up test collection entry (ID: ${collectionEntry.id})`);
+    
+    // Clean up - remove the test tape
+    await prisma.tape.delete({
+      where: {
+        id: newTape.id
+      }
+    });
+    console.log(`Cleaned up test tape (ID: ${newTape.id})`);
+    
+    console.log('\nAll tests completed successfully.');
+  } catch (error) {
+    console.error('Error during testing:', error);
   } finally {
     await prisma.$disconnect();
   }
