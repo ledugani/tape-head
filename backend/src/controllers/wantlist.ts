@@ -7,10 +7,18 @@ interface WantlistInput {
   notes?: string;
 }
 
-export const getUserWantlist = async (req: Request, res: Response) => {
+// Extend the Request type to include user property
+interface AuthRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+  };
+}
+
+export const getUserWantlist = async (req: AuthRequest, res: Response) => {
   try {
-    // Check if user ID exists from auth middleware
-    const userId = (req as any).user?.id;
+    // Extract userId from req.user.id
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized - User ID not found' });
     }
@@ -26,6 +34,7 @@ export const getUserWantlist = async (req: Request, res: Response) => {
       }
     });
 
+    // Return the result as JSON with status 200 (even if it's an empty array)
     res.status(200).json(wantlist);
   } catch (error) {
     console.error('Error fetching wantlist:', error);
@@ -33,10 +42,10 @@ export const getUserWantlist = async (req: Request, res: Response) => {
   }
 };
 
-export const addToWantlist = async (req: Request<{}, {}, WantlistInput>, res: Response) => {
+export const addToWantlist = async (req: AuthRequest & { body: WantlistInput }, res: Response) => {
   try {
-    // Check if user ID exists from auth middleware
-    const userId = (req as any).user?.id;
+    // Extract userId from req.user.id
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized - User ID not found' });
     }
