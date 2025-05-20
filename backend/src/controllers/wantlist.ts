@@ -7,6 +7,32 @@ interface WantlistInput {
   notes?: string;
 }
 
+export const getUserWantlist = async (req: Request, res: Response) => {
+  try {
+    // Check if user ID exists from auth middleware
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+    }
+
+    // Get user's wantlist with tape details
+    const wantlist = await prisma.userWantlist.findMany({
+      where: { userId },
+      include: {
+        tape: true
+      },
+      orderBy: {
+        priority: 'desc'
+      }
+    });
+
+    res.status(200).json(wantlist);
+  } catch (error) {
+    console.error('Error fetching wantlist:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const addToWantlist = async (req: Request<{}, {}, WantlistInput>, res: Response) => {
   try {
     // Check if user ID exists from auth middleware
