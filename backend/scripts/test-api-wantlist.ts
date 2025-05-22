@@ -37,7 +37,7 @@ async function main() {
     console.log(`Created test tape: ${newTape.title} (ID: ${newTape.id})`);
     
     // Test 1: Unauthenticated request should return 401
-    console.log('\n--- Test 1: Unauthenticated request ---');
+    console.log('\n--- Test 1: Unauthenticated POST request ---');
     try {
       await axios.post(`${API_URL}/wantlist`, { tapeId: newTape.id });
       console.error('❌ Test failed: Unauthenticated request should return 401');
@@ -121,14 +121,101 @@ async function main() {
       }
     }
     
-    // Clean up - remove the test wantlist entry
+    // Test 5: GET /wantlist - Unauthenticated request should return 401
+    console.log('\n--- Test 5: Unauthenticated GET request ---');
+    try {
+      await axios.get(`${API_URL}/wantlist`);
+      console.error('❌ Test failed: Unauthenticated GET request should return 401');
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 401) {
+        console.log('✅ Test passed: Unauthenticated GET request returned 401');
+      } else {
+        console.error(`❌ Test failed: Expected 401, got ${axiosError.response?.status}`);
+      }
+    }
+    
+    // Test 6: GET /wantlist - Authenticated user can retrieve their wantlist
+    console.log('\n--- Test 6: Authenticated GET request ---');
+    try {
+      const response = await axios.get(
+        `${API_URL}/wantlist`,
+        { headers: authHeader }
+      );
+      
+      if (response.status === 200) {
+        console.log('✅ Test passed: Authenticated GET request returned 200');
+        
+        // Verify response data is an array
+        const wantlist = response.data;
+        if (Array.isArray(wantlist)) {
+          console.log('✅ Test passed: Response is an array');
+          
+          // Find our test entry
+          const testEntry = wantlist.find(item => item.tapeId === newTape.id);
+          
+          if (testEntry) {
+            console.log('✅ Test passed: Found test entry in wantlist');
+            
+            // Verify tape data is included
+            if (
+              testEntry.tape &&
+              testEntry.tape.id === newTape.id &&
+              testEntry.tape.title === newTape.title
+            ) {
+              console.log('✅ Test passed: Response includes associated Tape data');
+            } else {
+              console.error('❌ Test failed: Response missing associated Tape data');
+            }
+          } else {
+            console.error('❌ Test failed: Test entry not found in wantlist');
+          }
+        } else {
+          console.error('❌ Test failed: Response is not an array');
+        }
+      } else {
+        console.error(`❌ Test failed: Expected 200, got ${response.status}`);
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      console.error('❌ Test failed: Could not retrieve wantlist', axiosError.response?.data);
+    }
+    
+    // Test 7: Empty wantlist test
+    console.log('\n--- Test 7: Empty wantlist test ---');
+    
+    // First, clean up the test wantlist entry to ensure empty wantlist
     await prisma.userWantlist.deleteMany({
       where: {
         userId: user.id,
         tapeId: newTape.id
       }
     });
-    console.log(`Cleaned up test wantlist entry`);
+    console.log('Cleaned up test wantlist entry for empty wantlist test');
+    
+    try {
+      const response = await axios.get(
+        `${API_URL}/wantlist`,
+        { headers: authHeader }
+      );
+      
+      if (response.status === 200) {
+        console.log('✅ Test passed: Empty wantlist request returned 200');
+        
+        // Verify response is an empty array
+        const wantlist = response.data;
+        if (Array.isArray(wantlist) && wantlist.length === 0) {
+          console.log('✅ Test passed: Empty wantlist returns an empty array');
+        } else {
+          console.error('❌ Test failed: Expected empty array for empty wantlist');
+        }
+      } else {
+        console.error(`❌ Test failed: Expected 200, got ${response.status}`);
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      console.error('❌ Test failed: Error retrieving empty wantlist', axiosError.response?.data);
+    }
     
     // Clean up - remove the test tape
     await prisma.tape.delete({

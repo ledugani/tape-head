@@ -7,11 +7,71 @@ interface WantlistInput {
   notes?: string;
 }
 
-export const addToWantlist = async (req: Request<{}, {}, WantlistInput>, res: Response) => {
+// Extend the Request type to include user property
+interface AuthRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+  };
+}
+
+export const getUserWantlist = async (req: AuthRequest, res: Response): Promise<Response> => {
   try {
-    // Check if user ID exists from auth middleware
-    const userId = (req as any).user?.id;
+    // Validate user authentication
+    if (!req.user) {
+      console.error('Authentication error: User object missing');
+      return res.status(401).json({ error: 'Unauthorized - Authentication required' });
+    }
+
+    // Extract userId from req.user.id
+    const userId = req.user.id;
     if (!userId) {
+      console.error('Authentication error: User ID missing');
+      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+    }
+
+    // Get user's wantlist with tape details
+    try {
+      const wantlist = await prisma.userWantlist.findMany({
+        where: { userId },
+        include: {
+          tape: true
+        },
+        orderBy: {
+          priority: 'desc'
+        }
+      });
+
+      // Return the result as JSON with status 200 (even if it's an empty array)
+      return res.status(200).json(wantlist);
+    } catch (dbError) {
+      console.error('Database error when fetching wantlist:', dbError);
+      return res.status(500).json({ error: 'Internal server error - Database operation failed' });
+    }
+  } catch (error) {
+    // Log the unexpected error with stack trace if available
+    console.error('Unexpected error in getUserWantlist:', error);
+    if (error instanceof Error) {
+      console.error(error.stack);
+    }
+    
+    // Return 500 Internal Server Error with generic message
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const addToWantlist = async (req: AuthRequest & { body: WantlistInput }, res: Response): Promise<Response> => {
+  try {
+    // Validate user authentication
+    if (!req.user) {
+      console.error('Authentication error: User object missing');
+      return res.status(401).json({ error: 'Unauthorized - Authentication required' });
+    }
+
+    // Extract userId from req.user.id
+    const userId = req.user.id;
+    if (!userId) {
+      console.error('Authentication error: User ID missing');
       return res.status(401).json({ error: 'Unauthorized - User ID not found' });
     }
 
@@ -44,28 +104,39 @@ export const addToWantlist = async (req: Request<{}, {}, WantlistInput>, res: Re
     }
 
     // Create new wantlist entry
-    const wantlistEntry = await prisma.userWantlist.create({
-      data: {
-        userId,
-        tapeId,
-        priority,
-        notes,
-      },
-      include: {
-        tape: true,
-        user: {
-          select: {
-            id: true,
-            username: true,
-            email: true
+    try {
+      const wantlistEntry = await prisma.userWantlist.create({
+        data: {
+          userId,
+          tapeId,
+          priority,
+          notes
+        },
+        include: {
+          tape: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true
+            }
           }
         }
-      }
-    });
+      });
 
-    res.status(201).json(wantlistEntry);
+      return res.status(201).json(wantlistEntry);
+    } catch (dbError) {
+      console.error('Database error when adding to wantlist:', dbError);
+      return res.status(500).json({ error: 'Internal server error - Database operation failed' });
+    }
   } catch (error) {
-    console.error('Error adding tape to wantlist:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    // Log the unexpected error with stack trace if available
+    console.error('Unexpected error in addToWantlist:', error);
+    if (error instanceof Error) {
+      console.error(error.stack);
+    }
+    
+    // Return 500 Internal Server Error with generic message
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }; 
