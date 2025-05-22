@@ -15,6 +15,7 @@ interface AuthRequest extends Request {
   };
 }
 
+// GET /wantlist - Get all wantlist entries for the authenticated user
 export const getUserWantlist = async (req: AuthRequest, res: Response): Promise<Response> => {
   try {
     // Validate user authentication
@@ -60,6 +61,7 @@ export const getUserWantlist = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
+// POST /wantlist - Add a tape to user's wantlist
 export const addToWantlist = async (req: AuthRequest & { body: WantlistInput }, res: Response): Promise<Response> => {
   try {
     // Validate user authentication
@@ -132,6 +134,65 @@ export const addToWantlist = async (req: AuthRequest & { body: WantlistInput }, 
   } catch (error) {
     // Log the unexpected error with stack trace if available
     console.error('Unexpected error in addToWantlist:', error);
+    if (error instanceof Error) {
+      console.error(error.stack);
+    }
+    
+    // Return 500 Internal Server Error with generic message
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// DELETE /wantlist/:id - Delete a wantlist entry
+export const deleteFromWantlist = async (req: AuthRequest & { params: { id: string } }, res: Response): Promise<Response> => {
+  try {
+    // Validate user authentication
+    if (!req.user) {
+      console.error('Authentication error: User object missing');
+      return res.status(401).json({ error: 'Unauthorized - Authentication required' });
+    }
+
+    // Extract userId from req.user.id
+    const userId = req.user.id;
+    if (!userId) {
+      console.error('Authentication error: User ID missing');
+      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+    }
+
+    const { id } = req.params;
+
+    // Check if the wantlist entry exists and belongs to the user
+    const wantlistEntry = await prisma.userWantlist.findUnique({
+      where: {
+        id: id as unknown as number
+      }
+    });
+
+    if (!wantlistEntry) {
+      return res.status(404).json({ error: 'Wantlist entry not found' });
+    }
+
+    // Verify the entry belongs to the user
+    if (wantlistEntry.userId !== userId) {
+      return res.status(403).json({ error: 'You do not have permission to delete this wantlist entry' });
+    }
+
+    // Delete the wantlist entry
+    try {
+      await prisma.userWantlist.delete({
+        where: {
+          id: id as unknown as number
+        }
+      });
+
+      return res.status(204).send();
+    } catch (dbError) {
+      console.error('Database error when deleting from wantlist:', dbError);
+      return res.status(500).json({ error: 'Internal server error - Database operation failed' });
+    }
+  } catch (error) {
+    // Log the unexpected error with stack trace if available
+    console.error('Unexpected error in deleteFromWantlist:', error);
     if (error instanceof Error) {
       console.error(error.stack);
     }
