@@ -52,6 +52,7 @@ async function main() {
     
     // Test 2: Add a tape to wantlist
     console.log('\n--- Test 2: Add tape to wantlist ---');
+    let wantlistEntryId: number | undefined;
     try {
       const response = await axios.post(
         `${API_URL}/wantlist`, 
@@ -61,6 +62,7 @@ async function main() {
       
       if (response.status === 201) {
         console.log('✅ Test passed: Tape added to wantlist');
+        wantlistEntryId = response.data.id;
         
         // Verify response data
         const wantlistEntry = response.data;
@@ -215,6 +217,74 @@ async function main() {
     } catch (error) {
       const axiosError = error as AxiosError;
       console.error('❌ Test failed: Error retrieving empty wantlist', axiosError.response?.data);
+    }
+
+    // Test 8: DELETE /wantlist/:id - Unauthenticated request should return 401
+    console.log('\n--- Test 8: Unauthenticated DELETE request ---');
+    if (wantlistEntryId) {
+      try {
+        await axios.delete(`${API_URL}/wantlist/${wantlistEntryId}`);
+        console.error('❌ Test failed: Unauthenticated DELETE request should return 401');
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        if (axiosError.response?.status === 401) {
+          console.log('✅ Test passed: Unauthenticated DELETE request returned 401');
+        } else {
+          console.error(`❌ Test failed: Expected 401, got ${axiosError.response?.status}`);
+        }
+      }
+    } else {
+      console.error('❌ Test skipped: No wantlist entry ID available');
+    }
+
+    // Test 9: DELETE /wantlist/:id - Delete non-existent entry should return 404
+    console.log('\n--- Test 9: Delete non-existent entry ---');
+    try {
+      await axios.delete(
+        `${API_URL}/wantlist/99999`,
+        { headers: authHeader }
+      );
+      console.error('❌ Test failed: Delete non-existent entry should return 404');
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
+        console.log('✅ Test passed: Delete non-existent entry returned 404');
+      } else {
+        console.error(`❌ Test failed: Expected 404, got ${axiosError.response?.status}`);
+      }
+    }
+
+    // Test 10: DELETE /wantlist/:id - Successfully delete own entry
+    console.log('\n--- Test 10: Delete own entry ---');
+    if (wantlistEntryId) {
+      try {
+        const response = await axios.delete(
+          `${API_URL}/wantlist/${wantlistEntryId}`,
+          { headers: authHeader }
+        );
+        
+        if (response.status === 204) {
+          console.log('✅ Test passed: Successfully deleted wantlist entry');
+          
+          // Verify entry is actually deleted
+          const deletedEntry = await prisma.userWantlist.findUnique({
+            where: { id: wantlistEntryId }
+          });
+          
+          if (!deletedEntry) {
+            console.log('✅ Test passed: Entry is no longer in database');
+          } else {
+            console.error('❌ Test failed: Entry still exists in database');
+          }
+        } else {
+          console.error(`❌ Test failed: Expected 204, got ${response.status}`);
+        }
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        console.error('❌ Test failed: Could not delete wantlist entry', axiosError.response?.data);
+      }
+    } else {
+      console.error('❌ Test skipped: No wantlist entry ID available');
     }
     
     // Clean up - remove the test tape
