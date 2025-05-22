@@ -18,6 +18,15 @@ model User {
   wantlist     UserWantlist[]
 }
 
+model Publisher {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  logoImage   String?
+  createdAt   DateTime @default(now())
+  tapes       Tape[]
+}
+
 model BoxSet {
   id          Int      @id @default(autoincrement())
   title       String
@@ -40,7 +49,9 @@ model Tape {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   boxSetId    Int?
+  publisherId String?
   boxSet      BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
+  publisher   Publisher?       @relation(fields: [publisherId], references: [id])
   collections UserCollection[]
   wantlist    UserWantlist[]
 }
