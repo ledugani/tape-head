@@ -1,18 +1,11 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import prisma from '../lib/prisma';
+import { AuthRequest } from '../middleware/auth';
 
 interface WantlistInput {
   tapeId: number;
   priority?: number;
   notes?: string;
-}
-
-// Extend the Request type to include user property
-interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-  };
 }
 
 // GET /wantlist - Get all wantlist entries for the authenticated user
