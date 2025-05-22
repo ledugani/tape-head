@@ -30,42 +30,41 @@ model BoxSet {
 }
 
 model Tape {
-  id          Int      @id @default(autoincrement())
+  id          Int              @id @default(autoincrement())
   title       String
   year        Int?
   genre       String?
   format      String?
   label       String?
   coverImage  String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   boxSetId    Int?
-  boxSet      BoxSet?  @relation("BoxSetTapes", fields: [boxSetId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  boxSet      BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
   collections UserCollection[]
   wantlist    UserWantlist[]
 }
 
 model UserCollection {
   id        Int      @id @default(autoincrement())
-  user      User     @relation(fields: [userId], references: [id])
   userId    Int
-  tape      Tape     @relation(fields: [tapeId], references: [id])
   tapeId    Int
   condition String?
   notes     String?
   addedAt   DateTime @default(now())
+  tape      Tape     @relation(fields: [tapeId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model UserWantlist {
-  id        String   @id @default(uuid())
-  userId    Int
-  tapeId    Int
-  priority  Int?     // optional, can be used for user-defined priority
-  notes     String?  // optional notes
-  addedAt   DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  tape      Tape     @relation(fields: [tapeId], references: [id])
+  id       String   @id @default(uuid())
+  userId   Int
+  tapeId   Int
+  priority Int?
+  notes    String?
+  addedAt  DateTime @default(now())
+  tape     Tape     @relation(fields: [tapeId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, tapeId])
 }
