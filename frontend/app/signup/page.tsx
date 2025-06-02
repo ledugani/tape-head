@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/Button';
+import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
+import { fetchApi } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,22 +14,27 @@ export default function SignupPage() {
     password: '',
     confirmPassword: '',
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+    submit?: string;
+  }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
+    const newErrors: typeof errors = {};
+
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = 'Please enter a valid email address';
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
 
     if (!formData.confirmPassword) {
@@ -44,21 +49,36 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      try {
-        setIsSubmitting(true);
-        // TODO: Replace with actual signup API call
-        // For now, simulate signup and then login
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await login(formData.email, formData.password);
-        router.push('/'); // Redirect to home page after successful signup
-      } catch (error) {
-        setErrors({
-          submit: 'Signup failed. Please try again.',
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      // First, create the account
+      await fetchApi('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      // Then, log the user in
+      await login(formData.email, formData.password);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Signup error:', error);
+      setErrors({
+        submit: error instanceof Error 
+          ? error.message 
+          : 'Failed to create account. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -66,8 +86,15 @@ export default function SignupPage() {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
+    // Clear error when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined,
+      }));
+    }
   };
 
   return (
@@ -77,6 +104,12 @@ export default function SignupPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Create your account
           </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Or{' '}
+            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+              sign in to your account
+            </Link>
+          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
@@ -90,7 +123,9 @@ export default function SignupPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.email ? 'border-red-300' : 'border-gray-300'
+                } placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
                 placeholder="Email address"
                 value={formData.email}
                 onChange={handleChange}
@@ -109,7 +144,9 @@ export default function SignupPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.password ? 'border-red-300' : 'border-gray-300'
+                } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleChange}
@@ -128,7 +165,9 @@ export default function SignupPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                } placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
                 placeholder="Confirm Password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
@@ -140,27 +179,25 @@ export default function SignupPage() {
           </div>
 
           {errors.submit && (
-            <p className="text-sm text-red-600 text-center">{errors.submit}</p>
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    {errors.submit}
+                  </h3>
+                </div>
+              </div>
+            </div>
           )}
 
           <div>
-            <Button
+            <button
               type="submit"
-              className="w-full"
-              variant="default"
               disabled={isSubmitting}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Creating account...' : 'Sign up'}
-            </Button>
-          </div>
-
-          <div className="text-sm text-center">
-            <Link
-              href="/login"
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              Already have an account? Sign in
-            </Link>
+              {isSubmitting ? 'Creating account...' : 'Create account'}
+            </button>
           </div>
         </form>
       </div>
