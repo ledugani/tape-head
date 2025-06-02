@@ -1,11 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { fetchApi, ApiError } from './api';
+import { useRouter } from 'next/navigation';
+import { fetchApi } from './api';
 
 interface User {
   id: string;
   email: string;
+  name: string;
 }
 
 interface AuthResponse {
@@ -13,127 +15,181 @@ interface AuthResponse {
   refreshToken: string;
   expiresIn: number;
   user: User;
+  sessionId: string;
+}
+
+interface SessionInfo {
+  id: string;
+  device: string;
+  lastActive: string;
+  location?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  isLoading: boolean;
-  sessionTimeout: number | null;
-  resetSessionTimeout: () => void;
+  sessionId: string | null;
+  hasSessionConflict: boolean;
+  activeSessions: SessionInfo[];
+  resolveSessionConflict: () => Promise<void>;
+  dismissSessionConflict: () => void;
+  refreshSessionInfo: () => Promise<void>;
 }
-
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const SESSION_WARNING_TIME = 5 * 60 * 1000; // 5 minutes
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [sessionTimeout, setSessionTimeout] = useState<number | null>(null);
-  const [timeoutWarning, setTimeoutWarning] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [hasSessionConflict, setHasSessionConflict] = useState(false);
+  const [activeSessions, setActiveSessions] = useState<SessionInfo[]>([]);
+  const router = useRouter();
 
-  const resetSessionTimeout = useCallback(() => {
-    if (user) {
-      const timeout = Date.now() + SESSION_TIMEOUT;
-      setSessionTimeout(timeout);
-      setTimeoutWarning(false);
+  const refreshSessionInfo = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const response = await fetchApi<{ sessions: SessionInfo[] }>('/auth/sessions', {
+        method: 'GET',
+      });
+      setActiveSessions(response.sessions);
+    } catch (error) {
+      console.error('Failed to fetch session info:', error);
     }
-  }, [user]);
+  }, [sessionId]);
 
-  const handleSessionTimeout = useCallback(() => {
-    if (sessionTimeout && Date.now() >= sessionTimeout) {
-      logout();
-    } else if (sessionTimeout && !timeoutWarning && Date.now() >= sessionTimeout - SESSION_WARNING_TIME) {
-      setTimeoutWarning(true);
-      // Show warning to user
-      if (window.confirm('Your session will expire in 5 minutes. Would you like to stay signed in?')) {
-        resetSessionTimeout();
+  const initializeAuth = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const storedSessionId = localStorage.getItem('session_id');
+
+      if (!token || !storedSessionId) {
+        setIsLoading(false);
+        return;
       }
+
+      // Verify session is still valid
+      const response = await fetchApi<{ user: User; sessionId: string; sessions: SessionInfo[] }>('/auth/verify-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId: storedSessionId }),
+      });
+
+      setUser(response.user);
+      setSessionId(response.sessionId);
+      setActiveSessions(response.sessions);
+      localStorage.setItem('session_id', response.sessionId);
+
+      // Check for session conflicts
+      if (response.sessions.length > 1) {
+        setHasSessionConflict(true);
+      }
+    } catch (error) {
+      // If session verification fails, clear everything
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiry');
+      localStorage.removeItem('session_id');
+      setUser(null);
+      setSessionId(null);
+      setActiveSessions([]);
+    } finally {
+      setIsLoading(false);
     }
-  }, [sessionTimeout, timeoutWarning, resetSessionTimeout]);
+  }, []);
 
   useEffect(() => {
-    if (user) {
-      resetSessionTimeout();
-      const interval = setInterval(handleSessionTimeout, 1000);
+    initializeAuth();
+  }, [initializeAuth]);
+
+  // Refresh session info periodically
+  useEffect(() => {
+    if (sessionId) {
+      const interval = setInterval(refreshSessionInfo, 30000); // Every 30 seconds
       return () => clearInterval(interval);
     }
-  }, [user, handleSessionTimeout, resetSessionTimeout]);
+  }, [sessionId, refreshSessionInfo]);
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('auth_token');
-      const refreshToken = localStorage.getItem('refresh_token');
-      
-      if (token && refreshToken) {
-        try {
-          // Verify token and get user info
-          const response = await fetchApi<{ user: User }>('/auth/verify', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          setUser(response.user);
-          resetSessionTimeout();
-        } catch (error) {
-          if (error instanceof ApiError && error.code === 'TOKEN_EXPIRED') {
-            // Show session expired message
-            alert('Your session has expired. Please sign in again.');
-          }
-          // If token is invalid, clear all tokens
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('token_expiry');
-          setUser(null);
-        }
-      }
-      setIsLoading(false);
-    };
-
-    initializeAuth();
-  }, [resetSessionTimeout]);
-
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const response = await fetchApi<AuthResponse>('/auth/login', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email, password }),
       });
 
-      // Store tokens
       localStorage.setItem('auth_token', response.accessToken);
       localStorage.setItem('refresh_token', response.refreshToken);
       localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
-      
-      // Update user state
+      localStorage.setItem('session_id', response.sessionId);
+
       setUser(response.user);
-      resetSessionTimeout();
-    } catch (error) {
-      console.error('Login failed:', error);
+      setSessionId(response.sessionId);
+      router.push('/dashboard');
+    } catch (error: any) {
+      if (error.code === 'SESSION_CONFLICT') {
+        setHasSessionConflict(true);
+        // Fetch active sessions when conflict is detected
+        await refreshSessionInfo();
+      }
       throw error;
     }
-  };
+  }, [router, refreshSessionInfo]);
 
-  const logout = () => {
-    // Clear all tokens
+  const logout = useCallback(() => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expiry');
+    localStorage.removeItem('session_id');
     setUser(null);
-    setSessionTimeout(null);
-    setTimeoutWarning(false);
-  };
+    setSessionId(null);
+    setActiveSessions([]);
+    router.push('/login');
+  }, [router]);
+
+  const resolveSessionConflict = useCallback(async () => {
+    try {
+      await fetchApi('/auth/logout-other-sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+      setHasSessionConflict(false);
+      // Refresh session info after resolving conflict
+      await refreshSessionInfo();
+    } catch (error) {
+      console.error('Failed to resolve session conflict:', error);
+      // If we can't resolve the conflict, force logout
+      logout();
+    }
+  }, [sessionId, logout, refreshSessionInfo]);
+
+  const dismissSessionConflict = useCallback(() => {
+    setHasSessionConflict(false);
+  }, []);
 
   const value = {
     user,
+    isAuthenticated: !!user,
+    isLoading,
     login,
     logout,
-    isLoading,
-    sessionTimeout,
-    resetSessionTimeout,
+    sessionId,
+    hasSessionConflict,
+    activeSessions,
+    resolveSessionConflict,
+    dismissSessionConflict,
+    refreshSessionInfo,
   };
 
   return (
