@@ -2,14 +2,19 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -30,11 +35,20 @@ export default function LoginPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      console.log('Login form submitted:', formData);
-      // TODO: Implement API call
+      try {
+        setIsSubmitting(true);
+        await login(formData.email, formData.password);
+        router.push('/'); // Redirect to home page after successful login
+      } catch (error) {
+        setErrors({
+          submit: 'Login failed. Please try again.',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -96,13 +110,18 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {errors.submit && (
+            <p className="text-sm text-red-600 text-center">{errors.submit}</p>
+          )}
+
           <div>
             <Button
               type="submit"
               className="w-full"
               variant="default"
+              disabled={isSubmitting}
             >
-              Sign in
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </div>
 
