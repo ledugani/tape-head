@@ -8,12 +8,14 @@ interface User {
   id: string;
   email: string;
   name: string;
+  emailVerified: boolean;
 }
 
 interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  user: User;
 }
 
 interface VerifyResponse {
@@ -32,7 +34,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   sessionId: string | null;
   hasSessionConflict: boolean;
@@ -40,7 +42,12 @@ interface AuthContextType {
   resolveSessionConflict: () => Promise<void>;
   dismissSessionConflict: () => void;
   refreshSessionInfo: () => Promise<void>;
+  refreshToken: () => Promise<void>;
 }
+
+const TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes in milliseconds
+const REMEMBER_ME_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+const DEFAULT_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -65,31 +72,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }
   }, [sessionId]);
 
+  const refreshToken = useCallback(async () => {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) throw new Error('No refresh token available');
+
+      const response = await fetchApi<AuthResponse>('/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      localStorage.setItem('access_token', response.accessToken);
+      localStorage.setItem('refresh_token', response.refreshToken);
+      localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
+      
+      setUser(response.user);
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      // If refresh fails, logout the user
+      await logout();
+    }
+  }, []);
+
   const initializeAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('access_token');
-      if (token) {
-        // Verify token and get user info
-        const response = await fetchApi<VerifyResponse>('/auth/verify', {
-          method: 'GET',
-        });
-        setUser(response.user);
-        setSessionId(response.sessionId);
+      const tokenExpiry = localStorage.getItem('token_expiry');
+      
+      if (token && tokenExpiry) {
+        const expiryTime = parseInt(tokenExpiry);
+        const now = Date.now();
+        
+        // If token is expired or about to expire, try to refresh it
+        if (now >= expiryTime - TOKEN_REFRESH_THRESHOLD) {
+          await refreshToken();
+        } else {
+          // Verify token and get user info
+          const response = await fetchApi<VerifyResponse>('/auth/verify', {
+            method: 'GET',
+          });
+          setUser(response.user);
+          setSessionId(response.sessionId);
+        }
       }
     } catch (error) {
       // If token verification fails, clear everything
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiry');
       setUser(null);
       setSessionId(null);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshToken]);
 
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // Set up token refresh interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const tokenExpiry = localStorage.getItem('token_expiry');
+      if (tokenExpiry) {
+        const expiryTime = parseInt(tokenExpiry);
+        const now = Date.now();
+        
+        if (now >= expiryTime - TOKEN_REFRESH_THRESHOLD) {
+          refreshToken();
+        }
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [refreshToken]);
 
   // Refresh session info periodically
   useEffect(() => {
@@ -99,28 +159,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }
   }, [sessionId, refreshSessionInfo]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     try {
       const response = await fetchApi<AuthResponse>('/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
 
+      const sessionDuration = rememberMe ? REMEMBER_ME_DURATION : DEFAULT_SESSION_DURATION;
+      
       localStorage.setItem('access_token', response.accessToken);
       localStorage.setItem('refresh_token', response.refreshToken);
-      localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
+      localStorage.setItem('token_expiry', String(Date.now() + sessionDuration));
       localStorage.setItem('session_id', response.sessionId);
 
       setUser(response.user);
       setSessionId(response.sessionId);
-      router.push('/dashboard');
+      
+      // If email is not verified, redirect to verification page
+      if (!response.user.emailVerified) {
+        router.push('/verify-email');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       if (error.code === 'SESSION_CONFLICT') {
         setHasSessionConflict(true);
-        // Fetch active sessions when conflict is detected
         await refreshSessionInfo();
       }
       throw error;
@@ -129,14 +196,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const logout = useCallback(async () => {
     try {
-      // Call logout endpoint to invalidate tokens
       await fetchApi('/auth/logout', {
         method: 'POST',
       });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear local state regardless of API success
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('token_expiry');
@@ -144,8 +209,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       setUser(null);
       setSessionId(null);
       setActiveSessions([]);
-      
-      // Redirect to login page
       router.push('/login');
     }
   }, [router]);
@@ -160,12 +223,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         body: JSON.stringify({ sessionId }),
       });
       setHasSessionConflict(false);
-      // Refresh session info after resolving conflict
       await refreshSessionInfo();
     } catch (error) {
       console.error('Failed to resolve session conflict:', error);
-      // If we can't resolve the conflict, force logout
-      logout();
+      await logout();
     }
   }, [sessionId, logout, refreshSessionInfo]);
 
@@ -185,6 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     resolveSessionConflict,
     dismissSessionConflict,
     refreshSessionInfo,
+    refreshToken,
   };
 
   return (
