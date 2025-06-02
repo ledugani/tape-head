@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
 import { useAuth } from '@/lib/AuthContext';
+import { ApiError } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,11 +55,39 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
-      setErrors({
-        submit: error instanceof Error 
-          ? error.message 
-          : 'Failed to sign in. Please try again.',
-      });
+      
+      if (error instanceof ApiError) {
+        switch (error.status) {
+          case 401:
+            setErrors({
+              submit: 'Invalid email or password. Please try again.',
+            });
+            break;
+          case 422:
+            setErrors({
+              submit: 'Please check your input and try again.',
+            });
+            break;
+          case 429:
+            setErrors({
+              submit: 'Too many login attempts. Please try again later.',
+            });
+            break;
+          case 500:
+            setErrors({
+              submit: 'An unexpected error occurred. Please try again later.',
+            });
+            break;
+          default:
+            setErrors({
+              submit: error.message,
+            });
+        }
+      } else {
+        setErrors({
+          submit: 'Failed to sign in. Please try again.',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

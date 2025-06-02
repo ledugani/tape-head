@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, ApiError } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -72,11 +72,44 @@ export default function SignupPage() {
       router.push('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
-      setErrors({
-        submit: error instanceof Error 
-          ? error.message 
-          : 'Failed to create account. Please try again.',
-      });
+      
+      if (error instanceof ApiError) {
+        switch (error.status) {
+          case 400:
+            setErrors({
+              submit: 'Please check your input and try again.',
+            });
+            break;
+          case 409:
+            setErrors({
+              email: 'An account with this email already exists.',
+            });
+            break;
+          case 422:
+            setErrors({
+              submit: 'Please check your input and try again.',
+            });
+            break;
+          case 429:
+            setErrors({
+              submit: 'Too many signup attempts. Please try again later.',
+            });
+            break;
+          case 500:
+            setErrors({
+              submit: 'An unexpected error occurred. Please try again later.',
+            });
+            break;
+          default:
+            setErrors({
+              submit: error.message,
+            });
+        }
+      } else {
+        setErrors({
+          submit: 'Failed to create account. Please try again.',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

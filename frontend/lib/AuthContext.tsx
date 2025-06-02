@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { fetchApi } from './api';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { fetchApi, ApiError } from './api';
 
 interface User {
   id: string;
@@ -18,13 +18,48 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
+  sessionTimeout: number | null;
+  resetSessionTimeout: () => void;
 }
+
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const SESSION_WARNING_TIME = 5 * 60 * 1000; // 5 minutes
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionTimeout, setSessionTimeout] = useState<number | null>(null);
+  const [timeoutWarning, setTimeoutWarning] = useState(false);
+
+  const resetSessionTimeout = useCallback(() => {
+    if (user) {
+      const timeout = Date.now() + SESSION_TIMEOUT;
+      setSessionTimeout(timeout);
+      setTimeoutWarning(false);
+    }
+  }, [user]);
+
+  const handleSessionTimeout = useCallback(() => {
+    if (sessionTimeout && Date.now() >= sessionTimeout) {
+      logout();
+    } else if (sessionTimeout && !timeoutWarning && Date.now() >= sessionTimeout - SESSION_WARNING_TIME) {
+      setTimeoutWarning(true);
+      // Show warning to user
+      if (window.confirm('Your session will expire in 5 minutes. Would you like to stay signed in?')) {
+        resetSessionTimeout();
+      }
+    }
+  }, [sessionTimeout, timeoutWarning, resetSessionTimeout]);
+
+  useEffect(() => {
+    if (user) {
+      resetSessionTimeout();
+      const interval = setInterval(handleSessionTimeout, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [user, handleSessionTimeout, resetSessionTimeout]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -38,7 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
           });
           setUser(response.user);
+          resetSessionTimeout();
         } catch (error) {
+          if (error instanceof ApiError && error.code === 'TOKEN_EXPIRED') {
+            // Show session expired message
+            alert('Your session has expired. Please sign in again.');
+          }
           // If token is invalid, clear it
           localStorage.removeItem('auth_token');
           setUser(null);
@@ -48,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  }, []);
+  }, [resetSessionTimeout]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -62,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Update user state
       setUser(response.user);
+      resetSessionTimeout();
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -71,6 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem('auth_token');
     setUser(null);
+    setSessionTimeout(null);
+    setTimeoutWarning(false);
   };
 
   const value = {
@@ -78,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     isLoading,
+    sessionTimeout,
+    resetSessionTimeout,
   };
 
   return (
