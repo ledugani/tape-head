@@ -22,10 +22,18 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      // Redirect to the return URL or dashboard
+      // Always redirect to dashboard or return URL after successful login
       router.push(decodeURIComponent(returnUrl));
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+      // Handle specific error cases
+      if (err.message.includes('Invalid credentials')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (err.message.includes('network')) {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError('An error occurred during sign in. Please try again.');
+      }
+      // Don't redirect on error
     } finally {
       setIsSubmitting(false);
     }

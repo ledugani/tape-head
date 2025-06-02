@@ -14,6 +14,9 @@ interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+interface VerifyResponse {
   user: User;
   sessionId: string;
 }
@@ -30,7 +33,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   sessionId: string | null;
   hasSessionConflict: boolean;
   activeSessions: SessionInfo[];
@@ -64,41 +67,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const initializeAuth = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const storedSessionId = localStorage.getItem('session_id');
-
-      if (!token || !storedSessionId) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Verify session is still valid
-      const response = await fetchApi<{ user: User; sessionId: string; sessions: SessionInfo[] }>('/auth/verify-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId: storedSessionId }),
-      });
-
-      setUser(response.user);
-      setSessionId(response.sessionId);
-      setActiveSessions(response.sessions);
-      localStorage.setItem('session_id', response.sessionId);
-
-      // Check for session conflicts
-      if (response.sessions.length > 1) {
-        setHasSessionConflict(true);
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        // Verify token and get user info
+        const response = await fetchApi<VerifyResponse>('/auth/verify', {
+          method: 'GET',
+        });
+        setUser(response.user);
+        setSessionId(response.sessionId);
       }
     } catch (error) {
-      // If session verification fails, clear everything
-      localStorage.removeItem('auth_token');
+      // If token verification fails, clear everything
+      localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      localStorage.removeItem('token_expiry');
-      localStorage.removeItem('session_id');
       setUser(null);
       setSessionId(null);
-      setActiveSessions([]);
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         body: JSON.stringify({ email, password }),
       });
 
-      localStorage.setItem('auth_token', response.accessToken);
+      localStorage.setItem('access_token', response.accessToken);
       localStorage.setItem('refresh_token', response.refreshToken);
       localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
       localStorage.setItem('session_id', response.sessionId);
@@ -144,15 +127,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }
   }, [router, refreshSessionInfo]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('token_expiry');
-    localStorage.removeItem('session_id');
-    setUser(null);
-    setSessionId(null);
-    setActiveSessions([]);
-    router.push('/login');
+  const logout = useCallback(async () => {
+    try {
+      // Call logout endpoint to invalidate tokens
+      await fetchApi('/auth/logout', {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear local state regardless of API success
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiry');
+      localStorage.removeItem('session_id');
+      setUser(null);
+      setSessionId(null);
+      setActiveSessions([]);
+      
+      // Redirect to login page
+      router.push('/login');
+    }
   }, [router]);
 
   const resolveSessionConflict = useCallback(async () => {
