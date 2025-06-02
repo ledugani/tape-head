@@ -9,59 +9,139 @@ export class ApiError extends Error {
   }
 }
 
-export async function fetchApi<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
 
-  const headers = new Headers({
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  });
+let isRefreshing = false;
+let refreshPromise: Promise<TokenResponse> | null = null;
 
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+async function refreshTokens(): Promise<TokenResponse> {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) {
+    throw new ApiError('No refresh token available', 401);
   }
 
   try {
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      ...options,
-      headers,
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      // Handle specific error cases
-      switch (response.status) {
-        case 401:
-          if (data.code === 'TOKEN_EXPIRED') {
-            throw new ApiError('Your session has expired. Please sign in again.', 401, 'TOKEN_EXPIRED');
-          }
-          throw new ApiError('Please sign in to continue.', 401);
-        case 403:
-          throw new ApiError('You do not have permission to perform this action.', 403);
-        case 404:
-          throw new ApiError('The requested resource was not found.', 404);
-        case 422:
-          throw new ApiError(data.message || 'Invalid input data.', 422);
-        case 429:
-          throw new ApiError('Too many requests. Please try again later.', 429);
-        case 500:
-          throw new ApiError('An unexpected error occurred. Please try again later.', 500);
-        default:
-          throw new ApiError(data.message || 'Something went wrong.', response.status);
-      }
+      throw new ApiError(data.message || 'Failed to refresh token', response.status);
     }
 
-    return data as T;
+    // Store new tokens
+    localStorage.setItem('auth_token', data.accessToken);
+    localStorage.setItem('refresh_token', data.refreshToken);
+    localStorage.setItem('token_expiry', String(Date.now() + data.expiresIn * 1000));
+
+    return data;
+  } catch (error) {
+    // Clear tokens on refresh failure
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expiry');
+    throw error;
+  }
+}
+
+async function getValidToken(): Promise<string> {
+  const token = localStorage.getItem('auth_token');
+  const expiry = localStorage.getItem('token_expiry');
+  
+  if (!token || !expiry) {
+    throw new ApiError('No valid token available', 401);
+  }
+
+  // If token expires in less than 5 minutes, refresh it
+  if (Date.now() + 5 * 60 * 1000 > parseInt(expiry)) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = refreshTokens();
+    }
+    
+    try {
+      const { accessToken } = await refreshPromise!;
+      return accessToken;
+    } finally {
+      if (isRefreshing) {
+        isRefreshing = false;
+        refreshPromise = null;
+      }
+    }
+  }
+
+  return token;
+}
+
+// Get the offline context
+let offlineContext: {
+  isOffline: boolean;
+  queueRequest: <T>(endpoint: string, options: RequestInit) => Promise<T>;
+} | null = null;
+
+export function setOfflineContext(context: typeof offlineContext) {
+  offlineContext = context;
+}
+
+export async function fetchApi<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  // Check if we're offline
+  if (offlineContext?.isOffline) {
+    console.log(`[Offline] Queuing request to ${endpoint}`);
+    return offlineContext.queueRequest<T>(endpoint, options);
+  }
+
+  try {
+    const token = await getValidToken();
+    const headers = new Headers(options.headers);
+    
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+      
+      if (response.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('token_expiry');
+        window.location.href = '/login';
+        throw new ApiError('Session expired. Please log in again.', 401, 'TOKEN_EXPIRED');
+      }
+
+      if (response.status === 0) {
+        // Network error
+        throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
+      }
+
+      throw new ApiError(error.message || 'An error occurred', response.status);
+    }
+
+    return response.json();
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
     }
     // Handle network errors
-    throw new ApiError('Network error. Please check your connection.', 0);
+    throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
   }
 } 

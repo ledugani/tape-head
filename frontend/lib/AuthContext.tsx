@@ -9,7 +9,9 @@ interface User {
 }
 
 interface AuthResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
   user: User;
 }
 
@@ -64,7 +66,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('auth_token');
-      if (token) {
+      const refreshToken = localStorage.getItem('refresh_token');
+      
+      if (token && refreshToken) {
         try {
           // Verify token and get user info
           const response = await fetchApi<{ user: User }>('/auth/verify', {
@@ -79,8 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Show session expired message
             alert('Your session has expired. Please sign in again.');
           }
-          // If token is invalid, clear it
+          // If token is invalid, clear all tokens
           localStorage.removeItem('auth_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('token_expiry');
           setUser(null);
         }
       }
@@ -97,8 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      // Store token
-      localStorage.setItem('auth_token', response.token);
+      // Store tokens
+      localStorage.setItem('auth_token', response.accessToken);
+      localStorage.setItem('refresh_token', response.refreshToken);
+      localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
       
       // Update user state
       setUser(response.user);
@@ -110,7 +118,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    // Clear all tokens
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expiry');
     setUser(null);
     setSessionTimeout(null);
     setTimeoutWarning(false);
