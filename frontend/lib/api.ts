@@ -16,13 +16,13 @@ export async function fetchApi<T>(
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
-  const headers: HeadersInit = {
+  const headers = new Headers({
     'Content-Type': 'application/json',
-    ...options.headers,
-  };
+    ...(options.headers as Record<string, string>),
+  });
 
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   try {
