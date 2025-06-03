@@ -3,46 +3,52 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import Link from 'next/link';
+import { CollectionView } from '@/app/components/CollectionView';
+import { WantlistView } from '@/app/components/WantlistView';
 
-interface CollectionStats {
-  totalTapes: number;
-  recentAdditions: number;
-  byCondition: Record<string, number>;
+interface Tape {
+  id: number;
+  title: string;
+  condition: string;
+  publisher: string;
+  releaseYear: number;
 }
 
-interface WantlistStats {
-  totalItems: number;
-  highPriority: number;
-  recentAdditions: number;
+interface WantlistItem {
+  id: number;
+  title: string;
+  priority: 'high' | 'medium' | 'low';
+  publisher: string;
+  releaseYear: number;
 }
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout } = useAuth();
-  const [collectionStats, setCollectionStats] = useState<CollectionStats | null>(null);
-  const [wantlistStats, setWantlistStats] = useState<WantlistStats | null>(null);
+  const [recentTapes, setRecentTapes] = useState<Tape[]>([]);
+  const [recentWantlist, setRecentWantlist] = useState<WantlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchRecentItems = async () => {
       try {
-        // Fetch collection stats
-        const collectionResponse = await fetch('/api/collection/stats');
+        // Fetch recent collection items
+        const collectionResponse = await fetch('/api/collection/recent');
         const collectionData = await collectionResponse.json();
-        setCollectionStats(collectionData);
+        setRecentTapes(collectionData);
 
-        // Fetch wantlist stats
-        const wantlistResponse = await fetch('/api/wantlist/stats');
+        // Fetch recent wantlist items
+        const wantlistResponse = await fetch('/api/wantlist/recent');
         const wantlistData = await wantlistResponse.json();
-        setWantlistStats(wantlistData);
+        setRecentWantlist(wantlistData);
       } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
+        console.error('Error fetching recent items:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     if (isAuthenticated) {
-      fetchStats();
+      fetchRecentItems();
     }
   }, [isAuthenticated]);
 
@@ -99,78 +105,32 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Collection Stats */}
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900">Collection</h3>
-              <div className="mt-4">
-                <dl className="grid grid-cols-1 gap-4">
-                  <div className="bg-gray-50 px-4 py-3 rounded-md">
-                    <dt className="text-sm font-medium text-gray-500">Total Tapes</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                      {collectionStats?.totalTapes || 0}
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 px-4 py-3 rounded-md">
-                    <dt className="text-sm font-medium text-gray-500">Recent Additions</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                      {collectionStats?.recentAdditions || 0}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
+        {/* Recent Collection */}
+        <div className="mb-12">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Recent Collection</h2>
+            <Link
+              href="/collection"
+              className="text-sm font-medium text-blue-600 hover:text-blue-500"
+            >
+              View all →
+            </Link>
           </div>
+          <CollectionView tapes={recentTapes} isLoading={isLoading} />
+        </div>
 
-          {/* Wantlist Stats */}
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900">Wantlist</h3>
-              <div className="mt-4">
-                <dl className="grid grid-cols-1 gap-4">
-                  <div className="bg-gray-50 px-4 py-3 rounded-md">
-                    <dt className="text-sm font-medium text-gray-500">Total Items</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                      {wantlistStats?.totalItems || 0}
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 px-4 py-3 rounded-md">
-                    <dt className="text-sm font-medium text-gray-500">High Priority</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                      {wantlistStats?.highPriority || 0}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
+        {/* Recent Wantlist */}
+        <div className="mb-12">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Recent Wantlist</h2>
+            <Link
+              href="/wantlist"
+              className="text-sm font-medium text-green-600 hover:text-green-500"
+            >
+              View all →
+            </Link>
           </div>
-
-          {/* Recent Activity */}
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
-              <div className="mt-4">
-                <ul className="divide-y divide-gray-200">
-                  {collectionStats?.recentAdditions ? (
-                    <li className="py-3">
-                      <p className="text-sm text-gray-600">
-                        Added {collectionStats.recentAdditions} tapes to your collection
-                      </p>
-                    </li>
-                  ) : null}
-                  {wantlistStats?.recentAdditions ? (
-                    <li className="py-3">
-                      <p className="text-sm text-gray-600">
-                        Added {wantlistStats.recentAdditions} items to your wantlist
-                      </p>
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-            </div>
-          </div>
+          <WantlistView items={recentWantlist} isLoading={isLoading} />
         </div>
       </div>
     </div>
