@@ -1,47 +1,68 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getUserCollection, Tape } from '@/lib/api';
 
-interface Tape {
-  id: number;
-  title: string;
-  condition: string;
-  publisher: string;
-  releaseYear: number;
-}
+export function CollectionView() {
+  const [tapes, setTapes] = useState<Tape[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-interface CollectionViewProps {
-  tapes: Tape[];
-  isLoading?: boolean;
-}
+  useEffect(() => {
+    const fetchTapes = async () => {
+      try {
+        const data = await getUserCollection();
+        setTapes(data);
+      } catch (err) {
+        setError('Failed to load collection');
+        console.error('Error fetching collection:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-export function CollectionView({ tapes, isLoading = false }: CollectionViewProps) {
+    fetchTapes();
+  }, []);
+
   if (isLoading) {
     return (
-      <div className="animate-pulse">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-gray-200 rounded-lg h-48"></div>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-lg shadow p-4 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+          </div>
+        ))}
       </div>
     );
   }
 
-  if (!tapes.length) {
+  if (error) {
     return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900">No tapes in your collection yet</h3>
-        <p className="mt-2 text-gray-600">Start building your collection by adding some tapes!</p>
-        <div className="mt-6">
-          <Link
-            href="/collection/add"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Add to Collection
-          </Link>
-        </div>
+      <div className="text-center py-8">
+        <p className="text-red-600">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 text-blue-600 hover:text-blue-500"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (tapes.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-600 mb-4">Your collection is empty</p>
+        <Link
+          href="/collection/add"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+        >
+          Add your first tape
+        </Link>
       </div>
     );
   }
@@ -49,24 +70,12 @@ export function CollectionView({ tapes, isLoading = false }: CollectionViewProps
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {tapes.map((tape) => (
-        <div
-          key={tape.id}
-          className="bg-white rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow duration-200"
-        >
-          <div className="p-4">
-            <h3 className="text-lg font-medium text-gray-900 truncate">{tape.title}</h3>
-            <div className="mt-2 space-y-1">
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">Publisher:</span> {tape.publisher}
-              </p>
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">Year:</span> {tape.releaseYear}
-              </p>
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">Condition:</span>{' '}
-                <span className="capitalize">{tape.condition}</span>
-              </p>
-            </div>
+        <div key={tape.id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{tape.title}</h3>
+          <div className="space-y-1 text-sm text-gray-600">
+            <p>Publisher: {tape.publisher}</p>
+            <p>Year: {tape.releaseYear}</p>
+            <p>Condition: <span className="font-medium">{tape.condition}</span></p>
           </div>
         </div>
       ))}

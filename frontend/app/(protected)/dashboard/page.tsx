@@ -99,7 +99,7 @@ export default function DashboardPage() {
               View all →
             </Link>
           </div>
-          <CollectionView tapes={recentTapes} isLoading={isLoading} />
+          <CollectionView />
         </div>
 
         {/* Recent Wantlist */}
