@@ -5,22 +5,7 @@ import { useAuth } from '@/lib/AuthContext';
 import Link from 'next/link';
 import { CollectionView } from '@/app/components/CollectionView';
 import { WantlistView } from '@/app/components/WantlistView';
-
-interface Tape {
-  id: number;
-  title: string;
-  condition: string;
-  publisher: string;
-  releaseYear: number;
-}
-
-interface WantlistItem {
-  id: number;
-  title: string;
-  priority: 'high' | 'medium' | 'low';
-  publisher: string;
-  releaseYear: number;
-}
+import { getUserCollection, getUserWantlist, Tape, WantlistItem } from '@/lib/api';
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -32,13 +17,11 @@ export default function DashboardPage() {
     const fetchRecentItems = async () => {
       try {
         // Fetch recent collection items
-        const collectionResponse = await fetch('/api/collection/recent');
-        const collectionData = await collectionResponse.json();
+        const collectionData = await getUserCollection();
         setRecentTapes(collectionData);
 
         // Fetch recent wantlist items
-        const wantlistResponse = await fetch('/api/wantlist/recent');
-        const wantlistData = await wantlistResponse.json();
+        const wantlistData = await getUserWantlist();
         setRecentWantlist(wantlistData);
       } catch (error) {
         console.error('Error fetching recent items:', error);

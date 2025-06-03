@@ -251,4 +251,87 @@ export async function fetchApi<T>(
     // Handle network errors
     throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
   }
+}
+
+// Collection and Wantlist Types
+export interface Tape {
+  id: number;
+  title: string;
+  condition: string;
+  publisher: string;
+  releaseYear: number;
+}
+
+export interface WantlistItem {
+  id: number;
+  title: string;
+  priority: 'high' | 'medium' | 'low';
+  publisher: string;
+  releaseYear: number;
+}
+
+// Mock data for development
+const mockTapes: Tape[] = [
+  {
+    id: 1,
+    title: "The Dark Side of the Moon",
+    condition: "Mint",
+    publisher: "Pink Floyd Records",
+    releaseYear: 1973
+  },
+  {
+    id: 2,
+    title: "Thriller",
+    condition: "Very Good",
+    publisher: "Epic Records",
+    releaseYear: 1982
+  }
+];
+
+const mockWantlist: WantlistItem[] = [
+  {
+    id: 1,
+    title: "Abbey Road",
+    priority: "high",
+    publisher: "Apple Records",
+    releaseYear: 1969
+  },
+  {
+    id: 2,
+    title: "Rumours",
+    priority: "medium",
+    publisher: "Warner Bros",
+    releaseYear: 1977
+  }
+];
+
+// Collection and Wantlist API Functions
+export async function getUserCollection(): Promise<Tape[]> {
+  try {
+    // In development, return mock data
+    if (process.env.NODE_ENV === 'development') {
+      return mockTapes;
+    }
+    
+    const response = await api.get('/collection');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user collection:', error);
+    throw error;
+  }
+}
+
+export async function getUserWantlist(): Promise<WantlistItem[]> {
+  try {
+    // In development, return mock data
+    if (process.env.NODE_ENV === 'development') {
+      return mockWantlist;
+    }
+    
+    const response = await api.get('/wantlist');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user wantlist:', error);
+    throw error;
+  }
 } 
