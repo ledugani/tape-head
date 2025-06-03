@@ -7,6 +7,11 @@ const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
+  // Allow API requests
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+  
   // Allow public routes
   if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
@@ -34,7 +39,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - api routes
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/|api/).*)',
   ],
 }; 

@@ -161,26 +161,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     try {
-      const response = await fetchApi<AuthResponse>('/auth/login', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ email, password, rememberMe }),
       });
 
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+
+      const data = await response.json();
       const sessionDuration = rememberMe ? REMEMBER_ME_DURATION : DEFAULT_SESSION_DURATION;
       
-      localStorage.setItem('access_token', response.accessToken);
-      localStorage.setItem('refresh_token', response.refreshToken);
+      localStorage.setItem('access_token', data.token);
       localStorage.setItem('token_expiry', String(Date.now() + sessionDuration));
-      localStorage.setItem('session_id', response.sessionId);
 
-      setUser(response.user);
-      setSessionId(response.sessionId);
+      setUser(data.user);
       
       // If email is not verified, redirect to verification page
-      if (!response.user.emailVerified) {
+      if (!data.user.emailVerified) {
         router.push('/verify-email');
       } else {
         router.push('/dashboard');

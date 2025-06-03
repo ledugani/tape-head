@@ -25,7 +25,7 @@ async function refreshTokens(): Promise<TokenResponse> {
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/auth/refresh`, {
+    const response = await fetch(`/api/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,14 +40,14 @@ async function refreshTokens(): Promise<TokenResponse> {
     }
 
     // Store new tokens
-    localStorage.setItem('auth_token', data.accessToken);
+    localStorage.setItem('access_token', data.accessToken);
     localStorage.setItem('refresh_token', data.refreshToken);
     localStorage.setItem('token_expiry', String(Date.now() + data.expiresIn * 1000));
 
     return data;
   } catch (error) {
     // Clear tokens on refresh failure
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expiry');
     throw error;
@@ -55,7 +55,7 @@ async function refreshTokens(): Promise<TokenResponse> {
 }
 
 async function getValidToken(): Promise<string> {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('access_token');
   const expiry = localStorage.getItem('token_expiry');
   
   if (!token || !expiry) {
@@ -111,7 +111,7 @@ export async function fetchApi<T>(
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+    const response = await fetch(`/api${endpoint}`, {
       ...options,
       headers,
     });
@@ -121,7 +121,7 @@ export async function fetchApi<T>(
       
       if (response.status === 401) {
         // Token expired or invalid
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('token_expiry');
         window.location.href = '/login';
