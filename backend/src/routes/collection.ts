@@ -1,13 +1,13 @@
-import { Router, RequestHandler } from 'express';
+import { Router } from 'express';
 import { addToCollection, getUserCollection } from '../controllers/collection';
-import { auth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
 // POST /api/collection - Add a tape to user's collection
-router.post('/', auth as RequestHandler, addToCollection as RequestHandler);
+router.post('/', authenticate as any, addToCollection as any);
 
 // GET /api/collection - Get user's collection
-router.get('/', auth as RequestHandler, getUserCollection as RequestHandler);
+router.get('/', authenticate as any, getUserCollection as any);
 
 export default router; 

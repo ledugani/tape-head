@@ -1,4 +1,4 @@
-import { Router, RequestHandler } from 'express';
+import { Router } from 'express';
 import { 
   getAllPublishers, 
   getPublisherById, 
@@ -6,23 +6,23 @@ import {
   updatePublisher, 
   deletePublisher 
 } from '../controllers/publishers';
-import { auth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
 // GET /api/publishers - List all publishers
-router.get('/', getAllPublishers as unknown as RequestHandler);
+router.get('/', getAllPublishers as any);
 
 // GET /api/publishers/:id - Get publisher details
-router.get('/:id', getPublisherById as unknown as RequestHandler);
+router.get('/:id', getPublisherById as any);
 
 // POST /api/publishers - Create new publisher (protected)
-router.post('/', auth as RequestHandler, createPublisher as unknown as RequestHandler);
+router.post('/', authenticate as any, createPublisher as any);
 
 // PUT /api/publishers/:id - Update publisher (protected)
-router.put('/:id', auth as RequestHandler, updatePublisher as unknown as RequestHandler);
+router.put('/:id', authenticate as any, updatePublisher as any);
 
 // DELETE /api/publishers/:id - Delete publisher (protected)
-router.delete('/:id', auth as RequestHandler, deletePublisher as unknown as RequestHandler);
+router.delete('/:id', authenticate as any, deletePublisher as any);
 
 export default router; 

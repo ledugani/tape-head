@@ -2,12 +2,12 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { fetchApi } from './api';
+import { api } from './api';
 
 interface User {
-  id: string;
+  id: number;
   email: string;
-  name: string;
+  username: string;
   emailVerified: boolean;
 }
 
@@ -34,7 +34,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (email: string, password: string, rememberMe: boolean) => Promise<User>;
   logout: () => Promise<void>;
   sessionId: string | null;
   hasSessionConflict: boolean;
@@ -43,6 +43,7 @@ interface AuthContextType {
   dismissSessionConflict: () => void;
   refreshSessionInfo: () => Promise<void>;
   refreshToken: () => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 const TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -53,6 +54,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [hasSessionConflict, setHasSessionConflict] = useState(false);
@@ -63,10 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     if (!sessionId) return;
 
     try {
-      const response = await fetchApi<{ sessions: SessionInfo[] }>('/auth/sessions', {
-        method: 'GET',
-      });
-      setActiveSessions(response.sessions);
+      const response = await api.get('/auth/sessions');
+      setActiveSessions(response.data.sessions);
     } catch (error) {
       console.error('Failed to fetch session info:', error);
     }
@@ -74,74 +74,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const refreshToken = useCallback(async () => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) throw new Error('No refresh token available');
-
-      const response = await fetchApi<AuthResponse>('/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      localStorage.setItem('access_token', response.accessToken);
-      localStorage.setItem('refresh_token', response.refreshToken);
-      localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
+      const response = await api.post('/auth/refresh');
+      const { accessToken, refreshToken, expiresIn } = response.data;
       
-      setUser(response.user);
+      // Set cookies
+      document.cookie = `token=${accessToken}; path=/; max-age=${expiresIn}; SameSite=Strict`;
+      document.cookie = `refresh_token=${refreshToken}; path=/; max-age=${expiresIn * 2}; SameSite=Strict`;
+      document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; path=/; max-age=${expiresIn}; SameSite=Strict`;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      // If refresh fails, logout the user
-      await logout();
+      throw error;
     }
   }, []);
 
   const initializeAuth = useCallback(async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const tokenExpiry = localStorage.getItem('token_expiry');
+      console.log('Initializing auth...');
       
+      // Check for token in cookies
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const token = cookies['token'];
+      const tokenExpiry = cookies['token_expiry'];
+
+      console.log('Auth state:', { hasToken: !!token, hasExpiry: !!tokenExpiry });
+
       if (token && tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry);
         const now = Date.now();
-        
+
+        console.log('Token expiry check:', { expiryTime, now, threshold: TOKEN_REFRESH_THRESHOLD });
+
         // If token is expired or about to expire, try to refresh it
         if (now >= expiryTime - TOKEN_REFRESH_THRESHOLD) {
+          console.log('Token needs refresh, attempting refresh...');
           await refreshToken();
-        } else {
-          // Verify token and get user info
-          const response = await fetchApi<VerifyResponse>('/auth/verify', {
-            method: 'GET',
-          });
-          setUser(response.user);
-          setSessionId(response.sessionId);
         }
+
+        // Verify token and get user info
+        console.log('Verifying token...');
+        const response = await api.get('/auth/verify');
+        console.log('Verify response:', response.data);
+        
+        if (response.data.user) {
+          console.log('Setting user in context from verify:', response.data.user);
+          setUser(response.data.user);
+          setIsAuthenticated(true);
+        }
+      } else {
+        console.log('No token found, clearing auth state');
+        setUser(null);
+        setIsAuthenticated(false);
       }
     } catch (error) {
+      console.error('Auth initialization failed:', error);
       // If token verification fails, clear everything
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('token_expiry');
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       setUser(null);
-      setSessionId(null);
+      setIsAuthenticated(false);
     } finally {
+      console.log('Auth initialization complete, setting isLoading to false');
       setIsLoading(false);
     }
   }, [refreshToken]);
 
   useEffect(() => {
     initializeAuth();
-  }, [initializeAuth]);
 
-  // Set up token refresh interval
-  useEffect(() => {
+    // Set up token refresh interval
     const interval = setInterval(() => {
-      const tokenExpiry = localStorage.getItem('token_expiry');
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const tokenExpiry = cookies['token_expiry'];
       if (tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry);
         const now = Date.now();
-        
+
         if (now >= expiryTime - TOKEN_REFRESH_THRESHOLD) {
           refreshToken();
         }
@@ -149,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }, 60000); // Check every minute
 
     return () => clearInterval(interval);
-  }, [refreshToken]);
+  }, [initializeAuth, refreshToken]);
 
   // Refresh session info periodically
   useEffect(() => {
@@ -159,73 +177,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }
   }, [sessionId, refreshSessionInfo]);
 
-  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
+  // Add effect to log auth state changes
+  useEffect(() => {
+    console.log('Auth state changed:', { isAuthenticated, isLoading, user });
+  }, [user, isLoading, isAuthenticated]);
+
+  const login = async (email: string, password: string, rememberMe: boolean) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email, password, rememberMe }),
-      });
+      const response = await api.post('/auth/login', { email, password });
+      const { user, token, refreshToken, expiresIn } = response.data;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
+      // Set cookies with secure attributes
+      const maxAge = rememberMe ? expiresIn : undefined;
+      const cookieOptions = [
+        `path=/`,
+        maxAge ? `max-age=${maxAge}` : '',
+        'SameSite=Lax',  // Changed from Strict to Lax for better compatibility
+        'Secure',        // Added Secure flag
+      ].filter(Boolean).join('; ');
 
-      const data = await response.json();
-      const sessionDuration = rememberMe ? REMEMBER_ME_DURATION : DEFAULT_SESSION_DURATION;
+      document.cookie = `token=${token}; ${cookieOptions}`;
+      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
+      document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+
+      // Update auth state before returning
+      setUser(user);
+      setIsAuthenticated(true);
       
-      localStorage.setItem('access_token', data.token);
-      localStorage.setItem('token_expiry', String(Date.now() + sessionDuration));
-
-      setUser(data.user);
+      // Wait a moment to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // If email is not verified, redirect to verification page
-      if (!data.user.emailVerified) {
-        router.push('/verify-email');
-      } else {
-        router.push('/dashboard');
-      }
-    } catch (error: any) {
-      if (error.code === 'SESSION_CONFLICT') {
-        setHasSessionConflict(true);
-        await refreshSessionInfo();
-      }
+      return user;
+    } catch (error) {
+      console.error('Login failed:', error);
       throw error;
     }
-  }, [router, refreshSessionInfo]);
+  };
 
-  const logout = useCallback(async () => {
+  const logout = async () => {
     try {
-      await fetchApi('/auth/logout', {
-        method: 'POST',
-      });
+      await api.post('/auth/logout');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout failed:', error);
     } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('token_expiry');
-      localStorage.removeItem('session_id');
+      // Clear cookies
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      
       setUser(null);
-      setSessionId(null);
-      setActiveSessions([]);
+      setIsAuthenticated(false);
       router.push('/login');
     }
-  }, [router]);
+  };
 
   const resolveSessionConflict = useCallback(async () => {
     try {
-      await fetchApi('/auth/logout-other-sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId }),
-      });
+      await api.post('/auth/logout-other-sessions', { sessionId });
       setHasSessionConflict(false);
       await refreshSessionInfo();
     } catch (error) {
@@ -240,7 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const value = {
     user,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isLoading,
     login,
     logout,
@@ -251,6 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     dismissSessionConflict,
     refreshSessionInfo,
     refreshToken,
+    setUser,
   };
 
   return (

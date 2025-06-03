@@ -8,7 +8,7 @@ import { fetchApi, ApiError } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -67,7 +67,7 @@ export default function SignupPage() {
 
     try {
       // First, create the account using direct fetch since registration doesn't require auth
-      const signupResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
+      const signupResponse = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,18 +80,26 @@ export default function SignupPage() {
         }),
       });
 
-      if (!signupResponse.ok) {
-        const error = await signupResponse.json();
-        throw new Error(error.message || 'Failed to create account');
-      }
-
       const data = await signupResponse.json();
+
+      if (!signupResponse.ok) {
+        if (data.error === 'User already exists') {
+          setErrors({
+            email: 'An account with this email already exists.',
+          });
+        } else {
+          throw new Error(data.error || 'Failed to create account');
+        }
+        return;
+      }
       
       // Store the token
       localStorage.setItem('access_token', data.token);
       
-      // Then, log the user in
-      await login(formData.email, formData.password);
+      // Set the user in the auth context
+      setUser(data.user);
+      
+      // Redirect to dashboard
       router.push('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);

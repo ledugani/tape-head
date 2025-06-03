@@ -1,3 +1,110 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add a request interceptor to add the auth token
+api.interceptors.request.use(async (config) => {
+  // Get the token from cookies
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const token = cookies['token'];
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add a response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If the error is 401 and we haven't tried to refresh the token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Get the refresh token from cookies
+        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split('=');
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const refreshToken = cookies['refresh_token'];
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        // Try to refresh the token
+        const response = await api.post('/auth/refresh', { refreshToken });
+        const { accessToken, expiresIn } = response.data;
+
+        // Update the token cookie
+        const cookieOptions = [
+          `path=/`,
+          `max-age=${expiresIn}`,
+          'SameSite=Lax',
+          'Secure'
+        ].join('; ');
+
+        document.cookie = `token=${accessToken}; ${cookieOptions}`;
+        document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+
+        // Retry the original request with the new token
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // If refresh fails, clear cookies and redirect to login
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // Handle specific error cases
+    if (error.response) {
+      const { status, data } = error.response;
+      
+      switch (status) {
+        case 400:
+          throw new Error(data.message || 'Invalid request. Please check your input.');
+        case 401:
+          throw new Error('Your session has expired. Please log in again.');
+        case 403:
+          throw new Error('You do not have permission to perform this action.');
+        case 404:
+          throw new Error('The requested resource was not found.');
+        case 500:
+          throw new Error('An unexpected error occurred. Please try again later.');
+        default:
+          throw new Error(data.message || 'An error occurred. Please try again.');
+      }
+    }
+
+    // Handle network errors
+    if (error.request) {
+      throw new Error('Network error. Please check your internet connection.');
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export { api };
+
 export class ApiError extends Error {
   constructor(
     message: string,

@@ -22,20 +22,52 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login(email, password, rememberMe);
-      router.push(decodeURIComponent(returnUrl));
-    } catch (err: any) {
-      // Handle specific error cases
-      if (err.message.includes('Invalid credentials')) {
-        setError('Invalid email or password. Please try again.');
-      } else if (err.message.includes('network')) {
-        setError('Network error. Please check your connection and try again.');
-      } else if (err.message.includes('email_verification')) {
-        setError('Please verify your email address before logging in.');
-      } else if (err.message.includes('account_locked')) {
-        setError('Account is locked. Please reset your password or contact support.');
+      console.log('Starting login process...');
+      const user = await login(email, password, rememberMe);
+      console.log('Login successful, user:', user);
+      console.log('Current URL:', window.location.href);
+      console.log('Return URL:', returnUrl);
+
+      // Wait a moment for the auth state to be updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Handle redirection based on email verification
+      if (!user.emailVerified) {
+        console.log('Email not verified, redirecting to verify-email');
+        router.replace('/verify-email');
       } else {
-        setError('An error occurred during sign in. Please try again.');
+        const redirectUrl = returnUrl === '/' ? '/dashboard' : decodeURIComponent(returnUrl);
+        console.log('Email verified, redirecting to:', redirectUrl);
+        router.replace(redirectUrl);
+      }
+    } catch (err: any) {
+      console.error('Login error in page:', err);
+      // Handle specific error cases
+      if (err.response) {
+        const { status, data } = err.response;
+        switch (status) {
+          case 400:
+            setError(data.message || 'Invalid email or password. Please try again.');
+            break;
+          case 401:
+            setError('Invalid email or password. Please try again.');
+            break;
+          case 403:
+            setError('Your account has been locked. Please contact support.');
+            break;
+          case 429:
+            setError('Too many login attempts. Please try again later.');
+            break;
+          case 500:
+            setError('An unexpected error occurred. Please try again in a few moments.');
+            break;
+          default:
+            setError(data.message || 'An error occurred during sign in. Please try again.');
+        }
+      } else if (err.request) {
+        setError('Network error. Please check your internet connection.');
+      } else {
+        setError(err.message || 'An error occurred during sign in. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
