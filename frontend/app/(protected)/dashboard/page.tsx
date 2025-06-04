@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/AuthContext';
+import { useAuth } from '../../../lib/AuthContext';
 import Link from 'next/link';
 import { CollectionView } from '@/app/components/CollectionView';
-import { WantlistView } from '@/app/components/WantlistView';
-import { getUserCollection, getUserWantlist, Tape, WantlistItem } from '@/lib/api';
+import { WantlistView } from '../../../app/components/WantlistView';
+import { getUserCollection, getUserWantlist } from '@/lib/api';
+import type { VHSTape } from '@/types/record';
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout } = useAuth();
-  const [recentTapes, setRecentTapes] = useState<Tape[]>([]);
-  const [recentWantlist, setRecentWantlist] = useState<WantlistItem[]>([]);
+  const [recentTapes, setRecentTapes] = useState<VHSTape[]>([]);
+  const [recentWantlist, setRecentWantlist] = useState<VHSTape[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

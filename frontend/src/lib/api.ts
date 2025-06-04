@@ -1,7 +1,7 @@
 import { VHSTape } from '@/types/record';
 
 // Mock data for development
-const mockWantlist: VHSTape[] = [
+const mockCollection: VHSTape[] = [
   {
     id: '1',
     title: 'The Terminator',
@@ -17,6 +17,46 @@ const mockWantlist: VHSTape[] = [
     coverImage: 'https://example.com/back-to-future-vhs.jpg',
   },
 ];
+
+const mockWantlist: VHSTape[] = [
+  {
+    id: '3',
+    title: 'The Matrix',
+    director: 'Lana Wachowski',
+    year: '1999',
+    coverImage: 'https://example.com/matrix-vhs.jpg',
+  },
+  {
+    id: '4',
+    title: 'Jurassic Park',
+    director: 'Steven Spielberg',
+    year: '1993',
+    coverImage: 'https://example.com/jurassic-park-vhs.jpg',
+  },
+];
+
+export async function getUserCollection(): Promise<VHSTape[]> {
+  if (process.env.NODE_ENV === 'development') {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return mockCollection;
+  }
+
+  try {
+    const response = await fetch('/api/collection', {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch collection');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error fetching collection:', error);
+    throw error;
+  }
+}
 
 export async function getUserWantlist(): Promise<VHSTape[]> {
   if (process.env.NODE_ENV === 'development') {

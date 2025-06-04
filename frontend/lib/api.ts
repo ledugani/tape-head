@@ -255,53 +255,84 @@ export async function fetchApi<T>(
 
 // Collection and Wantlist Types
 export interface Tape {
-  id: number;
+  id: string;
   title: string;
-  condition: string;
-  publisher: string;
   releaseYear: number;
+  genre: string;
+  label: string;
+  format: string;
+  notes: string;
+  coverImage: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface WantlistItem {
-  id: number;
-  title: string;
-  priority: 'high' | 'medium' | 'low';
-  publisher: string;
-  releaseYear: number;
+  id: string;
+  tape: Tape;
+  addedAt: string;
 }
 
 // Mock data for development
 const mockTapes: Tape[] = [
   {
-    id: 1,
-    title: "The Dark Side of the Moon",
-    condition: "Mint",
-    publisher: "Pink Floyd Records",
-    releaseYear: 1973
+    id: "1",
+    title: "The Terminator",
+    releaseYear: 1984,
+    genre: "Action",
+    label: "Orion Pictures",
+    format: "VHS",
+    notes: "",
+    coverImage: "https://example.com/terminator.jpg",
+    createdAt: new Date(),
+    updatedAt: new Date()
   },
   {
-    id: 2,
-    title: "Thriller",
-    condition: "Very Good",
-    publisher: "Epic Records",
-    releaseYear: 1982
+    id: "2",
+    title: "Back to the Future",
+    releaseYear: 1985,
+    genre: "Sci-Fi",
+    label: "Universal Pictures",
+    format: "VHS",
+    notes: "",
+    coverImage: "https://example.com/back-to-future.jpg",
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ];
 
 const mockWantlist: WantlistItem[] = [
   {
-    id: 1,
-    title: "Abbey Road",
-    priority: "high",
-    publisher: "Apple Records",
-    releaseYear: 1969
+    id: "1",
+    tape: {
+      id: "1",
+      title: "Abbey Road",
+      releaseYear: 1969,
+      genre: "Rock",
+      label: "The Beatles",
+      format: "VHS",
+      notes: "",
+      coverImage: "https://example.com/abbey-road.jpg",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    addedAt: "2024-04-01T12:00:00"
   },
   {
-    id: 2,
-    title: "Rumours",
-    priority: "medium",
-    publisher: "Warner Bros",
-    releaseYear: 1977
+    id: "2",
+    tape: {
+      id: "2",
+      title: "Rumours",
+      releaseYear: 1977,
+      genre: "Pop",
+      label: "Fleetwood Mac",
+      format: "VHS",
+      notes: "",
+      coverImage: "https://example.com/rumours.jpg",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    addedAt: "2024-04-02T12:00:00"
   }
 ];
 
