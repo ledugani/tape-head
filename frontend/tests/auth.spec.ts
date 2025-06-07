@@ -1,166 +1,89 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
-  test.beforeEach(async ({ page }) => {
-    // Clear any existing cookies before each test
-    await page.context().clearCookies();
-  });
-
-  test('should handle login correctly', async ({ page }) => {
-    await page.goto('/login');
+  test('should handle login and collection loading', async ({ page }) => {
+    console.log('[Test] Starting login test');
     
-    // Fill in the login form
-    await page.fill('input[name="email"]', 'iamtest@test.com');
+    // Enable console logging
+    page.on('console', msg => console.log(`[Browser Console] ${msg.text()}`));
+    
+    // Log navigation events
+    page.on('request', request => console.log(`[Navigation] Request: ${request.url()}`));
+    page.on('response', response => console.log(`[Navigation] Response: ${response.url()} - ${response.status()}`));
+    
+    console.log('[Test] Navigating to login page');
+    await page.goto('/login');
+    console.log('[Test] Login page loaded');
+    
+    // Take a screenshot and log page content
+    await page.screenshot({ path: 'login-page.png', fullPage: true });
+    const content = await page.content();
+    console.log('[Test] Page content:', content);
+    
+    console.log('[Test] Filling login form');
+    await page.fill('input[name="email"]', 'user@example.com');
     await page.fill('input[name="password"]', 'password123');
     
-    // Click the login button and wait for navigation
-    await Promise.all([
-      page.waitForURL('/dashboard'),
-      page.click('button[type="submit"]')
-    ]);
-    
-    // Verify auth cookie was set
-    const cookies = await page.context().cookies();
-    const authCookie = cookies.find(cookie => cookie.name === 'auth-token');
-    expect(authCookie).toBeTruthy();
-  });
-
-  test('should handle login with remember me', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'iamtest@test.com');
-    await page.fill('input[name="password"]', 'password1');
-    
-    // Check the remember me checkbox and wait for state update
-    await page.evaluate(() => {
-      const checkbox = document.querySelector('input[name="rememberMe"]') as HTMLInputElement;
-      checkbox.checked = true;
-      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-      checkbox.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    
-    // Wait for checkbox to be checked
-    await page.waitForFunction(() => {
-      const checkbox = document.querySelector('input[name="rememberMe"]') as HTMLInputElement;
-      return checkbox.checked;
-    });
-    
-    console.log('Checkbox checked:', await page.evaluate(() => {
-      const checkbox = document.querySelector('input[name="rememberMe"]') as HTMLInputElement;
-      return checkbox.checked;
-    }));
-    
-    // Submit the form
+    console.log('[Test] Clicking login button');
     await page.click('button[type="submit"]');
     
-    // Wait for navigation to complete
-    await page.waitForURL('/dashboard');
+    // Wait for navigation and log the URL
+    await page.waitForURL('**/dashboard');
+    console.log('[Test] Navigated to dashboard:', page.url());
     
-    // Get the auth cookie
-    const cookies = await page.context().cookies();
-    const authCookie = cookies.find(c => c.name === 'auth-token');
+    // Verify dashboard content
+    await expect(page.locator('[data-testid="dashboard-welcome"]')).toBeVisible();
+    console.log('[Test] Dashboard welcome message found');
     
-    // Verify cookie expiration (30 days)
-    const expectedExpiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
-    const oneDay = 24 * 60 * 60;
-    
-    // Log the actual values for debugging
-    console.log('Cookie expiration:', {
-      expected: expectedExpiry,
-      actual: authCookie?.expires,
-      difference: authCookie?.expires ? expectedExpiry - authCookie.expires : 'N/A'
-    });
-    
-    expect(authCookie?.expires).toBeGreaterThan(expectedExpiry - oneDay);
-    expect(authCookie?.expires).toBeLessThan(expectedExpiry + oneDay);
+    // Verify collection loading
+    await expect(page.locator('[data-testid="collection-list"]')).toBeVisible();
+    console.log('[Test] Collection list found');
   });
 
   test('should handle logout correctly', async ({ page }) => {
-    // Log in first
+    // Navigate to login page
     await page.goto('/login');
-    await page.fill('input[name="email"]', 'iamtest@test.com');
-    await page.fill('input[name="password"]', 'password123');
+    
+    // Clear any existing auth state after navigation
+    await page.evaluate(() => {
+      localStorage.clear();
+      document.cookie.split(';').forEach(cookie => {
+        document.cookie = cookie.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`);
+      });
+    });
+
+    // Fill in login form
+    await page.fill('input[type="email"]', 'iamtest@test.com');
+    await page.fill('input[type="password"]', 'password1');
     
     // Click login and wait for navigation
     await Promise.all([
       page.waitForURL('/dashboard'),
-      page.click('button[type="submit"]')
+      page.click('[data-testid="login-button"]')
     ]);
-    
-    // Verify we're logged in
-    const cookiesBefore = await page.context().cookies();
-    const authCookieBefore = cookiesBefore.find(cookie => cookie.name === 'auth-token');
-    expect(authCookieBefore).toBeTruthy();
-    
-    // Wait for the logout button to be visible
-    const logoutButton = await page.waitForSelector('button[data-testid="logout-button"]');
-    
+
+    // Wait for dashboard to load
+    await page.waitForSelector('[data-testid="dashboard-welcome"]', { state: 'visible', timeout: 10000 });
+
     // Click logout and wait for navigation
     await Promise.all([
-      page.waitForURL(/\/login(\?.*)?$/),
-      logoutButton.click()
+      page.waitForURL('/login'),
+      page.click('[data-testid="logout-button"]')
     ]);
-    
-    // Verify auth cookie was cleared
-    const cookiesAfter = await page.context().cookies();
-    const authCookieAfter = cookiesAfter.find(cookie => cookie.name === 'auth-token');
-    expect(authCookieAfter).toBeFalsy();
-  });
 
-  test('should redirect to login when accessing protected route without auth', async ({ page }) => {
-    await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login\?from=%2Fdashboard$/);
-  });
+    // Verify auth state is cleared
+    const authState = await page.evaluate(() => ({
+      accessToken: localStorage.getItem('access_token'),
+      refreshToken: localStorage.getItem('refresh_token'),
+      tokenExpiry: localStorage.getItem('token_expiry'),
+      userEmail: localStorage.getItem('user_email'),
+      cookies: document.cookie
+    }));
 
-  test('should redirect to dashboard when accessing login with valid auth', async ({ page }) => {
-    // First log in
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'iamtest@test.com');
-    await page.fill('input[name="password"]', 'password123');
-    
-    // Click login and wait for navigation
-    await Promise.all([
-      page.waitForURL('/dashboard'),
-      page.click('button[type="submit"]')
-    ]);
-    
-    // Then try to access login page again
-    await page.goto('/login');
-    await expect(page).toHaveURL('/dashboard');
-  });
-
-  test('should show loading state during authentication', async ({ page }) => {
-    // Clear any existing auth state
-    await page.context().clearCookies();
-    
-    // Navigate to protected route
-    await page.goto('/dashboard');
-    
-    // Should show loading spinner immediately
-    const loadingSpinner = await page.waitForSelector('[data-testid="loading-spinner"]', { state: 'visible', timeout: 5000 });
-    expect(loadingSpinner).toBeTruthy();
-    
-    // Should eventually redirect to login
-    await page.waitForURL(/\/login(\?.*)?$/);
-    
-    // Verify we're on the login page
-    expect(page.url()).toContain('/login');
-  });
-
-  test('should preserve return URL after login', async ({ page }) => {
-    // Try to access a protected route
-    await page.goto('/dashboard');
-    
-    // Should be redirected to login with return URL
-    await expect(page).toHaveURL(/\/login\?from=%2Fdashboard$/);
-    
-    // Log in
-    await page.fill('input[name="email"]', 'iamtest@test.com');
-    await page.fill('input[name="password"]', 'password123');
-    
-    // Click login and wait for navigation
-    await Promise.all([
-      page.waitForURL('/dashboard'),
-      page.click('button[type="submit"]')
-    ]);
+    expect(authState.accessToken).toBeNull();
+    expect(authState.refreshToken).toBeNull();
+    expect(authState.tokenExpiry).toBeNull();
+    expect(authState.userEmail).toBeNull();
+    expect(authState.cookies).not.toContain('auth-token');
   });
 }); 

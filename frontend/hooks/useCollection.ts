@@ -1,45 +1,72 @@
-import { useState, useEffect } from 'react';
-import { getUserCollection, Tape } from '@/lib/api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getUserCollection, Tape } from '@/src/lib/api';
 
 export function useCollection() {
   const [tapes, setTapes] = useState<Tape[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const fetchTapes = async () => {
-      try {
-        const data = await getUserCollection();
+  const fetchTapes = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const data = await getUserCollection(signal);
+      if (!signal?.aborted) {
         setTapes(data);
         setError(null);
-      } catch (err) {
+      }
+    } catch (err) {
+      if (!signal?.aborted) {
         setError(err instanceof Error ? err.message : 'Failed to load collection');
-        console.error('Error fetching collection:', err);
-      } finally {
+      }
+    } finally {
+      if (!signal?.aborted) {
         setIsLoading(false);
       }
-    };
+    }
+  }, []);
 
-    fetchTapes();
+  useEffect(() => {
+    abortControllerRef.current = new AbortController();
+    fetchTapes(abortControllerRef.current.signal);
+
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, [fetchTapes]);
+
+  const refetch = useCallback(async () => {
+    // Abort any ongoing request
+    abortControllerRef.current?.abort();
+    
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await getUserCollection(signal);
+      if (!signal.aborted) {
+        setTapes(data);
+        return data;
+      }
+    } catch (err) {
+      if (!signal.aborted) {
+        setError(err instanceof Error ? err.message : 'Failed to load collection');
+        throw err;
+      }
+    } finally {
+      if (!signal.aborted) {
+        setIsLoading(false);
+      }
+    }
   }, []);
 
   return {
     tapes,
     isLoading,
     error,
-    refetch: () => {
-      setIsLoading(true);
-      setError(null);
-      return getUserCollection()
-        .then(data => {
-          setTapes(data);
-          return data;
-        })
-        .catch(err => {
-          setError(err instanceof Error ? err.message : 'Failed to load collection');
-          throw err;
-        })
-        .finally(() => setIsLoading(false));
-    }
+    refetch
   };
 } 

@@ -8,28 +8,37 @@ export async function POST(request: Request) {
 
     // Mock authentication - in a real app, this would validate against your backend
     if (email === 'iamtest@test.com' && password === 'password1') {
-      const token = `mock-token-${Date.now()}`;
-      const response = NextResponse.json({ success: true, redirect: '/dashboard' });
+      const accessToken = `mock-access-token-${Date.now()}`;
+      const refreshToken = `mock-refresh-token-${Date.now()}`;
+      const expiresIn = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7; // 30 days or 7 days
+      
+      const response = NextResponse.json({ 
+        success: true, 
+        redirect: '/dashboard',
+        accessToken,
+        refreshToken,
+        expiresIn,
+        user: { email }
+      });
       
       // Set cookie expiration based on remember me
-      let maxAge, reason;
-      if (rememberMe) {
-        maxAge = 60 * 60 * 24 * 30; // 30 days
-        reason = 'rememberMe truthy';
-      } else {
-        maxAge = 60 * 60 * 24 * 7; // 7 days
-        reason = 'rememberMe falsy or missing';
-      }
-      const expires = Math.floor(Date.now() / 1000) + maxAge;
-      console.log('LOGIN API:', { now: new Date(), maxAge, expires, rememberMe, reason });
-      
-      response.cookies.set('auth-token', token, {
-        httpOnly: true,
+      response.cookies.set('auth-token', accessToken, {
+        httpOnly: false, // Allow JavaScript access
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge,
-        expires: new Date(expires * 1000)
+        maxAge: expiresIn,
+        domain: 'localhost' // Ensure cookies work in development
+      });
+
+      // Set refresh token cookie
+      response.cookies.set('refresh_token', refreshToken, {
+        httpOnly: false, // Allow JavaScript access
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: expiresIn,
+        domain: 'localhost' // Ensure cookies work in development
       });
       
       return response;

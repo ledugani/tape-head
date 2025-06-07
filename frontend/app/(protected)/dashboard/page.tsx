@@ -1,26 +1,82 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import Link from 'next/link';
 import { CollectionView } from '@/app/components/CollectionView';
 import { WantlistView } from '@/app/components/WantlistView';
-import { getUserCollection, getUserWantlist } from '@/lib/api';
-import type { VHSTape } from '@/types/record';
+
+function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="text-center py-8">
+      <p className="text-red-600">Something went wrong: {error.message}</p>
+      <button 
+        onClick={resetErrorBoundary}
+        className="mt-4 text-blue-600 hover:text-blue-500"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="flex justify-center items-center h-64">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  );
+}
+
+function TabContent({ activeTab }: { activeTab: 'collection' | 'wantlist' }) {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      {activeTab === 'collection' ? <CollectionView /> : <WantlistView />}
+    </Suspense>
+  );
+}
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'collection' | 'wantlist'>('collection');
+  const [error, setError] = useState<Error | null>(null);
 
-  console.log('DashboardPage rendered, user:', user);
+  // Debug logging
+  console.log('Dashboard auth state:', { user, isLoading });
+
+  if (isLoading) {
+    console.log('[DashboardPage] Loading...');
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    console.log('Dashboard: Error state', error);
+    return <ErrorFallback error={error} resetErrorBoundary={() => setError(null)} />;
+  }
+
+  if (!user) {
+    console.log('[DashboardPage] No user, redirecting or showing error');
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600">You must be logged in to view this page.</p>
+        <Link href="/login" className="mt-4 text-blue-600 hover:text-blue-500">
+          Go to login
+        </Link>
+      </div>
+    );
+  }
+
+  console.log('[DashboardPage] User:', user);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Welcome, {user?.username || 'User'}</h1>
+        <h1 className="text-2xl font-bold mb-4" data-testid="dashboard-welcome">
+          Welcome to your dashboard, {user.email}!
+        </h1>
         <button 
           data-testid="logout-button" 
-          onClick={async () => await logout()}
+          onClick={logout}
           className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
         >
           Logout
@@ -54,11 +110,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {activeTab === 'collection' ? (
-        <CollectionView />
-      ) : (
-        <WantlistView />
-      )}
+      <div data-testid={activeTab === 'collection' ? 'collection-list' : 'wantlist-list'}>
+        <TabContent activeTab={activeTab} />
+      </div>
     </div>
   );
 } 
