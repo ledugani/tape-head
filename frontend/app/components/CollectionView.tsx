@@ -1,29 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { getUserCollection, Tape } from '@/lib/api';
+import { useCollection } from '@/hooks/useCollection';
 
 export function CollectionView() {
-  const [tapes, setTapes] = useState<Tape[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchTapes = async () => {
-      try {
-        const data = await getUserCollection();
-        setTapes(data);
-      } catch (err) {
-        setError('Failed to load collection');
-        console.error('Error fetching collection:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTapes();
-  }, []);
+  const { tapes, isLoading, error } = useCollection();
 
   if (isLoading) {
     return (

@@ -2,14 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
-import type { VHSTape } from '@/types/record';
+import { useWantlist } from '@/hooks/useWantlist';
 
-interface WantlistViewProps {
-  items: VHSTape[];
-  isLoading?: boolean;
-}
+export function WantlistView() {
+  const { items, isLoading, error } = useWantlist();
 
-export function WantlistView({ items, isLoading = false }: WantlistViewProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -18,6 +15,20 @@ export function WantlistView({ items, isLoading = false }: WantlistViewProps) {
             <div key={i} className="bg-gray-200 rounded-lg h-48"></div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 text-blue-600 hover:text-blue-500"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -48,19 +59,19 @@ export function WantlistView({ items, isLoading = false }: WantlistViewProps) {
         >
           <div className="aspect-square relative">
             <img
-              src={item.coverImage}
-              alt={item.title}
+              src={item.tape.coverImage}
+              alt={item.tape.title}
               className="w-full h-full object-cover"
             />
           </div>
           <div className="p-4">
-            <h3 className="text-lg font-medium text-gray-900 truncate">{item.title}</h3>
+            <h3 className="text-lg font-medium text-gray-900 truncate">{item.tape.title}</h3>
             <div className="mt-2 space-y-1">
               <p className="text-sm text-gray-600">
-                <span className="font-medium">Director:</span> {item.director}
+                <span className="font-medium">Director:</span> {item.tape.director}
               </p>
               <p className="text-sm text-gray-600">
-                <span className="font-medium">Year:</span> {item.year}
+                <span className="font-medium">Year:</span> {item.tape.releaseYear}
               </p>
             </div>
           </div>
