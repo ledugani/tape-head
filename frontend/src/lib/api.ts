@@ -373,15 +373,28 @@ export async function getUserCollection(signal?: AbortSignal): Promise<Tape[]> {
     return collection;
   } catch (error) {
     console.log('[getUserCollection] Error fetching collection:', error);
+    if (error instanceof ApiError && error.status === 404) {
+      console.log('[getUserCollection] Collection not found, returning empty array');
+      return [];
+    }
     throw error;
   }
 }
 
 export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
-  return fetchApi<WantlistItem[]>('/wantlist', {
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+  try {
+    return await fetchApi<WantlistItem[]>('/wantlist', {
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error) {
+    console.log('[getUserWantlist] Error fetching wantlist:', error);
+    if (error instanceof ApiError && error.status === 404) {
+      console.log('[getUserWantlist] Wantlist not found, returning empty array');
+      return [];
+    }
+    throw error;
+  }
 } 
