@@ -2,71 +2,62 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // List of public routes that don't require authentication
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
+const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 export function middleware(request: NextRequest) {
-  try {
-    // Get all cookies for debugging
-    const cookies = request.cookies.getAll();
-    console.log('Middleware cookies:', cookies);
+  const authToken = request.cookies.get('auth-token');
+  const path = request.nextUrl.pathname;
+  const isPublicRoute = publicRoutes.includes(path);
 
-    // Check for token and its expiry
-    const token = request.cookies.get('token')?.value;
-    const tokenExpiry = request.cookies.get('token_expiry')?.value;
-    
-    const isTokenValid = token && tokenExpiry && parseInt(tokenExpiry) > Date.now();
-    console.log('Middleware token check:', { 
-      hasToken: !!token, 
-      hasExpiry: !!tokenExpiry,
-      isTokenValid,
-      currentTime: Date.now(),
-      expiryTime: tokenExpiry ? parseInt(tokenExpiry) : null
-    });
+  // Debug logging
+  console.log('Middleware:', {
+    path,
+    hasToken: !!authToken,
+    isTokenValid: authToken?.value?.startsWith('mock-token-'),
+    isPublicRoute,
+    cookies: Array.from(request.cookies.getAll()).map(c => c.name)
+  });
 
-    const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
-                      request.nextUrl.pathname.startsWith('/signup') ||
-                      request.nextUrl.pathname.startsWith('/forgot-password') ||
-                      request.nextUrl.pathname.startsWith('/reset-password') ||
-                      request.nextUrl.pathname.startsWith('/verify-email');
+  // Check if we have a valid token
+  const hasValidToken = authToken?.value?.startsWith('mock-token-');
 
-    console.log('Middleware:', {
-      path: request.nextUrl.pathname,
-      hasToken: !!token,
-      isTokenValid,
-      isAuthPage,
-      cookies: cookies.map(c => c.name)
-    });
-
-    // If trying to access auth pages while logged in, redirect to dashboard
-    if (isAuthPage && isTokenValid) {
-      console.log('Middleware: Redirecting to dashboard (logged in user on auth page)');
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    // If trying to access protected pages while logged out or with invalid token, redirect to login
-    if (!isAuthPage && !isTokenValid) {
-      const from = encodeURIComponent(request.nextUrl.pathname);
-      console.log('Middleware: Redirecting to login (no valid token)');
-      return NextResponse.redirect(new URL(`/login?from=${from}`, request.url));
-    }
-
-    console.log('Middleware: Allowing request to proceed');
-    return NextResponse.next();
-  } catch (err) {
-    console.error('Middleware error:', err);
-    // On error, redirect to login to be safe
-    return NextResponse.redirect(new URL('/login', request.url));
+  // If we have an invalid token, clear it and redirect to login
+  if (authToken && !hasValidToken) {
+    console.log('Middleware: Invalid token found, clearing and redirecting to login');
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('auth-token');
+    return response;
   }
+
+  // If we're on a public route and have a valid token, redirect to dashboard
+  if (isPublicRoute && hasValidToken) {
+    console.log('Middleware: Redirecting to dashboard (already authenticated)');
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // If we're not on a public route and don't have a valid token, redirect to login
+  if (!isPublicRoute && !hasValidToken) {
+    console.log('Middleware: Redirecting to login (no valid token)');
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('from', path);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Allow the request to proceed
+  console.log('Middleware: Allowing request to proceed');
+  return NextResponse.next();
 }
 
 // Configure which routes to run middleware on
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/login',
-    '/signup',
-    '/forgot-password',
-    '/reset-password',
-    '/verify-email',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }; 

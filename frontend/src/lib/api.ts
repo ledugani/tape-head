@@ -1,103 +1,368 @@
-import { VHSTape } from '@/types/record';
+import axios from 'axios';
 
-// Mock data for development
-const mockCollection: VHSTape[] = [
-  {
-    id: '1',
-    title: 'The Terminator',
-    director: 'James Cameron',
-    year: '1984',
-    coverImage: 'https://example.com/terminator-vhs.jpg',
+const api = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
   },
-  {
-    id: '2',
-    title: 'Back to the Future',
-    director: 'Robert Zemeckis',
-    year: '1985',
-    coverImage: 'https://example.com/back-to-future-vhs.jpg',
-  },
-];
+});
 
-const mockWantlist: VHSTape[] = [
-  {
-    id: '3',
-    title: 'The Matrix',
-    director: 'Lana Wachowski',
-    year: '1999',
-    coverImage: 'https://example.com/matrix-vhs.jpg',
-  },
-  {
-    id: '4',
-    title: 'Jurassic Park',
-    director: 'Steven Spielberg',
-    year: '1993',
-    coverImage: 'https://example.com/jurassic-park-vhs.jpg',
-  },
-];
+// Add a request interceptor to add the auth token
+api.interceptors.request.use(async (config) => {
+  // Get the token from cookies
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
 
-export async function getUserCollection(): Promise<VHSTape[]> {
-  if (process.env.NODE_ENV === 'development') {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return mockCollection;
+  const token = cookies['token'];
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add a response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If the error is 401 and we haven't tried to refresh the token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Get the refresh token from cookies
+        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split('=');
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const refreshToken = cookies['refresh_token'];
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        // Try to refresh the token
+        const response = await api.post('/auth/refresh', { refreshToken });
+        const { accessToken, expiresIn } = response.data;
+
+        // Update the token cookie
+        const cookieOptions = [
+          `path=/`,
+          `max-age=${expiresIn}`,
+          'SameSite=Lax',
+          'Secure'
+        ].join('; ');
+
+        document.cookie = `token=${accessToken}; ${cookieOptions}`;
+        document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+
+        // Retry the original request with the new token
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // If refresh fails, clear cookies and redirect to login
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // Handle specific error cases
+    if (error.response) {
+      const { status, data } = error.response;
+      
+      switch (status) {
+        case 400:
+          throw new Error(data.message || 'Invalid request. Please check your input.');
+        case 401:
+          throw new Error('Your session has expired. Please log in again.');
+        case 403:
+          throw new Error('You do not have permission to perform this action.');
+        case 404:
+          throw new Error('The requested resource was not found.');
+        case 500:
+          throw new Error('An unexpected error occurred. Please try again later.');
+        default:
+          throw new Error(data.message || 'An error occurred. Please try again.');
+      }
+    }
+
+    // Handle network errors
+    if (error.request) {
+      throw new Error('Network error. Please check your internet connection.');
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export { api };
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+let isRefreshing = false;
+let refreshPromise: Promise<TokenResponse> | null = null;
+
+async function refreshTokens(): Promise<TokenResponse> {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) {
+    throw new ApiError('No refresh token available', 401);
   }
 
   try {
-    const response = await fetch('/api/collection', {
-      credentials: 'include',
+    const response = await fetch(`/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Failed to fetch collection');
+      throw new ApiError(data.message || 'Failed to refresh token', response.status);
     }
 
-    return response.json();
+    // Store new tokens
+    localStorage.setItem('access_token', data.accessToken);
+    localStorage.setItem('refresh_token', data.refreshToken);
+    localStorage.setItem('token_expiry', String(Date.now() + data.expiresIn * 1000));
+
+    return data;
   } catch (error) {
-    console.error('Error fetching collection:', error);
+    // Clear tokens on refresh failure
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expiry');
     throw error;
   }
 }
 
-export async function getUserWantlist(): Promise<VHSTape[]> {
-  if (process.env.NODE_ENV === 'development') {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return mockWantlist;
+async function getValidToken(): Promise<string> {
+  const token = localStorage.getItem('access_token');
+  const expiry = localStorage.getItem('token_expiry');
+  
+  if (!token || !expiry) {
+    throw new ApiError('No valid token available', 401);
   }
 
-  try {
-    const response = await fetch('/api/wantlist', {
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch wantlist');
+  // If token expires in less than 5 minutes, refresh it
+  if (Date.now() + 5 * 60 * 1000 > parseInt(expiry)) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = refreshTokens();
     }
-
-    return response.json();
-  } catch (error) {
-    console.error('Error fetching wantlist:', error);
-    throw error;
+    
+    try {
+      const { accessToken } = await refreshPromise!;
+      return accessToken;
+    } finally {
+      if (isRefreshing) {
+        isRefreshing = false;
+        refreshPromise = null;
+      }
+    }
   }
+
+  return token;
 }
 
-export const API_BASE_URL = '/api';
+// Get the offline context
+let offlineContext: {
+  isOffline: boolean;
+  queueRequest: <T>(endpoint: string, options: RequestInit) => Promise<T>;
+} | null = null;
 
-export const fetchApi = async <T>(
+export function setOfflineContext(context: typeof offlineContext) {
+  offlineContext = context;
+}
+
+export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.statusText}`);
+): Promise<T> {
+  // Check if we're offline
+  if (offlineContext?.isOffline) {
+    console.log(`[Offline] Queuing request to ${endpoint}`);
+    return offlineContext.queueRequest<T>(endpoint, options);
   }
 
-  return response.json();
-}; 
+  try {
+    const token = await getValidToken();
+    const headers = new Headers(options.headers);
+    
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const response = await fetch(`/api${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+      
+      if (response.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('token_expiry');
+        window.location.href = '/login';
+        throw new ApiError('Session expired. Please log in again.', 401, 'TOKEN_EXPIRED');
+      }
+
+      if (response.status === 0) {
+        // Network error
+        throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
+      }
+
+      throw new ApiError(error.message || 'An error occurred', response.status);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    // Handle network errors
+    throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
+  }
+}
+
+// Collection and Wantlist Types
+export interface Tape {
+  id: string;
+  title: string;
+  releaseYear: number;
+  genre: string;
+  label: string;
+  format: string;
+  notes: string;
+  coverImage: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WantlistItem {
+  id: string;
+  tape: Tape;
+  addedAt: string;
+}
+
+// Mock data for development
+const mockTapes: Tape[] = [
+  {
+    id: "1",
+    title: "The Terminator",
+    releaseYear: 1984,
+    genre: "Action",
+    label: "Orion Pictures",
+    format: "VHS",
+    notes: "",
+    coverImage: "https://example.com/terminator.jpg",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: "2",
+    title: "Back to the Future",
+    releaseYear: 1985,
+    genre: "Sci-Fi",
+    label: "Universal Pictures",
+    format: "VHS",
+    notes: "",
+    coverImage: "https://example.com/back-to-future.jpg",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+];
+
+const mockWantlist: WantlistItem[] = [
+  {
+    id: "1",
+    tape: {
+      id: "1",
+      title: "Abbey Road",
+      releaseYear: 1969,
+      genre: "Rock",
+      label: "The Beatles",
+      format: "VHS",
+      notes: "",
+      coverImage: "https://example.com/abbey-road.jpg",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    addedAt: "2024-04-01T12:00:00"
+  },
+  {
+    id: "2",
+    tape: {
+      id: "2",
+      title: "Rumours",
+      releaseYear: 1977,
+      genre: "Pop",
+      label: "Fleetwood Mac",
+      format: "VHS",
+      notes: "",
+      coverImage: "https://example.com/rumours.jpg",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    addedAt: "2024-04-02T12:00:00"
+  }
+];
+
+// Collection and Wantlist API Functions
+export async function getUserCollection(): Promise<Tape[]> {
+  try {
+    // In development, return mock data
+    if (process.env.NODE_ENV === 'development') {
+      return mockTapes;
+    }
+    
+    const response = await api.get('/collection');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user collection:', error);
+    throw error;
+  }
+}
+
+export async function getUserWantlist(): Promise<WantlistItem[]> {
+  try {
+    // In development, return mock data
+    if (process.env.NODE_ENV === 'development') {
+      return mockWantlist;
+    }
+    
+    const response = await api.get('/wantlist');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user wantlist:', error);
+    throw error;
+  }
+} 

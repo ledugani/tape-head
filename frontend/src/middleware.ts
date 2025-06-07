@@ -2,26 +2,34 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Get the pathname of the request
   const path = request.nextUrl.pathname;
-
-  // Define public paths that don't require authentication
   const isPublicPath = path === '/login' || path === '/signup';
+  const token = request.cookies.get('auth-token');
 
-  // Get the token from the cookies
-  const token = request.cookies.get('auth-token')?.value;
+  // Debug logging
+  console.log('Middleware: Request details:', {
+    path,
+    isPublicPath,
+    hasToken: !!token?.value,
+    tokenValue: token?.value,
+    cookies: Array.from(request.cookies.getAll())
+  });
 
-  // Redirect logic
-  if (isPublicPath && token) {
-    // If user is logged in and tries to access login/signup, redirect to dashboard
+  // If on a public path and has token, redirect to dashboard
+  if (isPublicPath && token?.value) {
+    console.log('Middleware: Redirecting to dashboard (public path with token)');
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  if (!isPublicPath && !token) {
-    // If user is not logged in and tries to access protected routes, redirect to login
-    return NextResponse.redirect(new URL('/login', request.url));
+  // If on a protected path and no token, redirect to login
+  if (!isPublicPath && !token?.value) {
+    console.log('Middleware: Redirecting to login (protected path without token)');
+    const url = new URL('/login', request.url);
+    url.searchParams.set('from', path);
+    return NextResponse.redirect(url);
   }
 
+  console.log('Middleware: Allowing request to proceed');
   return NextResponse.next();
 }
 
