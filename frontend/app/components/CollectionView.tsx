@@ -35,7 +35,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 function EmptyState() {
   return (
     <div className="text-center py-8">
-      <p className="text-gray-600 mb-4">Your collection is empty</p>
+      <p className="text-gray-600 mb-4">You have no tapes in your collection</p>
       <Link
         href="/collection/add"
         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"

@@ -33,7 +33,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 function EmptyState() {
   return (
     <div className="text-center py-12">
-      <h3 className="text-lg font-medium text-gray-900">No items in your wantlist yet</h3>
+      <h3 className="text-lg font-medium text-gray-900">Your wantlist is empty</h3>
       <p className="mt-2 text-gray-600">Start building your wantlist by adding some items!</p>
       <div className="mt-6">
         <Link
