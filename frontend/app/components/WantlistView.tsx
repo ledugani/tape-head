@@ -2,7 +2,7 @@
 
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { useWantlist } from '@/src/hooks/useWantlist';
+import { useWantlist } from '@/hooks/useWantlist';
 
 function LoadingSkeleton() {
   return (
