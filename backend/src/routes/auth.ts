@@ -10,4 +10,12 @@ router.post('/refresh', refresh as any);
 router.get('/me', authenticateToken as any, getMe as any);
 router.get('/verify', authenticateToken as any, verify as any);
 
+// In src/routes/auth.ts
+router.post('/logout', (req, res) => {
+	// If using JWTs, you may not need to do anything server-side,
+	// but you could blacklist the token, invalidate the refresh token, etc.
+	// For now, just return a 200 OK.
+	res.status(200).json({ message: 'Logged out' });
+});
+
 export default router;
