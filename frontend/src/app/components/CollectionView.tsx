@@ -18,7 +18,6 @@ export function CollectionView() {
         setError(null);
       } catch (err) {
         setError('Failed to load collection');
-        console.error('Error fetching collection:', err);
       } finally {
         setIsLoading(false);
       }

@@ -3,21 +3,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface OfflineContextType {
-  isOffline: boolean;
+  isOnline: boolean;
 }
 
-const OfflineContext = createContext<OfflineContextType>({ isOffline: false });
+const OfflineContext = createContext<OfflineContextType>({ isOnline: false });
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    // Set initial state
-    setIsOffline(!navigator.onLine);
-    console.log('[Offline] Initial state:', navigator.onLine ? 'online' : 'offline');
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -29,7 +25,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <OfflineContext.Provider value={{ isOffline }}>
+    <OfflineContext.Provider value={{ isOnline }}>
       {children}
     </OfflineContext.Provider>
   );

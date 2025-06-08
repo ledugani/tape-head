@@ -21,7 +21,7 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('LoginPage ErrorBoundary caught error:', error, errorInfo);
+    // Error handling without console.log
   }
 
   render() {
@@ -38,25 +38,6 @@ class ErrorBoundary extends React.Component<
 }
 
 function LoginPageContent() {
-  console.log('[LoginPage] Component definition starting');
-
-  // Granular debug log
-  useEffect(() => {
-    console.log('[LoginPage] Component mounted');
-    console.log('[LoginPage] Document readyState:', document.readyState);
-    console.log('[LoginPage] Window React:', window.React ? 'Present' : 'Not found');
-    console.log('[LoginPage] Window localStorage:', window.localStorage ? 'Available' : 'Not available');
-    
-    const marker = document.getElementById('hydration-marker');
-    if (marker) {
-      console.log('[LoginPage] Hydration marker found:', marker);
-      marker.setAttribute('data-hydrated', 'true');
-      console.log('[LoginPage] Hydration marker updated');
-    } else {
-      console.log('[LoginPage] Hydration marker not found');
-    }
-  }, []);
-
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,27 +48,22 @@ function LoginPageContent() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    const marker = document.getElementById('hydration-marker');
+    if (marker) {
+      marker.setAttribute('data-hydrated', 'true');
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log('[LoginPage] handleSubmit called', { 
-      email, 
-      password, 
-      rememberMe,
-      isAuthenticated,
-      readyState: document.readyState,
-      hasReact: !!window.React
-    });
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
     try {
-      // Ensure rememberMe is a boolean
       const rememberMeValue = Boolean(rememberMe);
-      console.log('[LoginPage] calling login with rememberMe:', rememberMeValue);
       await login(email, password, rememberMeValue);
-      console.log('[LoginPage] login successful, navigating to', returnUrl);
       router.push(returnUrl);
     } catch (err: any) {
-      console.error('[LoginPage] login error:', err);
       if (err.message.includes('Invalid credentials')) {
         setError('Invalid email or password');
       } else if (err.message.includes('Email not verified')) {
@@ -100,129 +76,108 @@ function LoginPageContent() {
     }
   };
 
-  console.log('[LoginPage] Component rendering');
-
-  try {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div id="hydration-marker" data-testid="hydration-marker" />
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Sign in to your account
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Or{' '}
-              <Link
-                href="/signup"
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                create a new account
-              </Link>
-            </p>
-          </div>
-          <form 
-            className="mt-8 space-y-6" 
-            onSubmit={(e) => { 
-              console.log('[LoginPage] form onSubmit triggered');
-              handleSubmit(e);
-            }}
-          >
-            <div className="rounded-md shadow-sm -space-y-px">
-              <div>
-                <label htmlFor="email" className="sr-only">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => {
-                    console.log('[LoginPage] email onChange');
-                    setEmail(e.target.value);
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="sr-only">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => {
-                    console.log('[LoginPage] password onChange');
-                    setPassword(e.target.value);
-                  }}
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="text-red-500 text-sm text-center">{error}</div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="rememberMe"
-                  type="checkbox"
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  checked={rememberMe}
-                  onChange={(e) => {
-                    console.log('[LoginPage] rememberMe onChange');
-                    setRememberMe(e.target.checked);
-                  }}
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-900"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <Link
-                  href="/forgot-password"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                data-testid="login-button"
-                disabled={isSubmitting}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => console.log('[LoginPage] login button onClick')}
-              >
-                {isSubmitting ? 'Signing in...' : 'Sign in'}
-              </button>
-            </div>
-          </form>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div id="hydration-marker" data-testid="hydration-marker" />
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Sign in to your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Or{' '}
+            <Link
+              href="/signup"
+              className="font-medium text-blue-600 hover:text-blue-500"
+            >
+              create a new account
+            </Link>
+          </p>
         </div>
+        <form 
+          className="mt-8 space-y-6" 
+          onSubmit={handleSubmit}
+        >
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <label htmlFor="email" className="sr-only">
+                Email address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-red-500 text-sm text-center">{error}</div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="rememberMe"
+                type="checkbox"
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-gray-900"
+              >
+                Remember me
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <Link
+                href="/forgot-password"
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
+            </button>
+          </div>
+        </form>
       </div>
-    );
-  } catch (err) {
-    console.error('[LoginPage] Render error:', err);
-    return <div style={{ color: 'red', padding: 16 }}>LoginPage Error: {String(err)}</div>;
-  }
+    </div>
+  );
 }
 
 export default function LoginPage() {

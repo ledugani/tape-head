@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -20,6 +22,7 @@ api.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });
 
@@ -126,22 +129,17 @@ let isRefreshing = false;
 let refreshPromise: Promise<TokenResponse> | null = null;
 
 async function refreshTokens(): Promise<TokenResponse> {
-  console.log('[refreshTokens] Starting token refresh');
   const refreshToken = document.cookie
     .split('; ')
     .find(row => row.startsWith('refresh_token='))
     ?.split('=')[1];
   
-  console.log('[refreshTokens] Refresh token available:', !!refreshToken);
-  
   if (!refreshToken) {
-    console.log('[refreshTokens] No refresh token available');
     throw new ApiError('No refresh token available', 401);
   }
 
   try {
-    console.log('[refreshTokens] Making refresh request');
-    const response = await fetch(`/api/auth/refresh`, {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,15 +148,8 @@ async function refreshTokens(): Promise<TokenResponse> {
     });
 
     const data = await response.json();
-    console.log('[refreshTokens] Refresh response status:', response.status);
-
-    if (!response.ok) {
-      console.log('[refreshTokens] Refresh failed:', data);
-      throw new ApiError(data.message || 'Failed to refresh token', response.status);
-    }
 
     // Store new tokens in cookies
-    console.log('[refreshTokens] Storing new tokens');
     const cookieOptions = [
       `path=/`,
       `max-age=${data.expiresIn}`,
@@ -172,7 +163,6 @@ async function refreshTokens(): Promise<TokenResponse> {
 
     return data;
   } catch (error) {
-    console.log('[refreshTokens] Error during refresh:', error);
     // Clear cookies on refresh failure
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -182,7 +172,6 @@ async function refreshTokens(): Promise<TokenResponse> {
 }
 
 async function getValidToken(): Promise<string> {
-  console.log('[getValidToken] Starting token validation');
   const token = document.cookie
     .split('; ')
     .find(row => row.startsWith('token='))
@@ -192,21 +181,12 @@ async function getValidToken(): Promise<string> {
     .find(row => row.startsWith('token_expiry='))
     ?.split('=')[1];
   
-  console.log('[getValidToken] Current token state:', { 
-    hasToken: !!token, 
-    hasExpiry: !!expiry,
-    expiryTime: expiry ? new Date(parseInt(expiry)).toISOString() : null,
-    currentTime: new Date().toISOString()
-  });
-
   if (!token || !expiry) {
-    console.log('[getValidToken] No valid token available');
     throw new ApiError('No valid token available', 401);
   }
 
   // If token expires in less than 5 minutes, refresh it
   if (Date.now() + 5 * 60 * 1000 > parseInt(expiry)) {
-    console.log('[getValidToken] Token needs refresh');
     if (!isRefreshing) {
       isRefreshing = true;
       refreshPromise = refreshTokens();
@@ -214,7 +194,6 @@ async function getValidToken(): Promise<string> {
     
     try {
       const { accessToken } = await refreshPromise!;
-      console.log('[getValidToken] Successfully refreshed token');
       return accessToken;
     } finally {
       if (isRefreshing) {
@@ -224,7 +203,6 @@ async function getValidToken(): Promise<string> {
     }
   }
 
-  console.log('[getValidToken] Using existing valid token');
   return token;
 }
 
@@ -242,42 +220,36 @@ export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  console.log(`[fetchApi] Starting request to ${endpoint}`);
   try {
     // Get a valid token
     const token = await getValidToken();
-    console.log('[fetchApi] Got valid token');
 
     // Prepare headers
-    const headers = new Headers(options.headers);
-    headers.set('Authorization', `Bearer ${token}`);
-    headers.set('Content-Type', 'application/json');
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
 
     // Make the request
-    console.log(`[fetchApi] Making request to /api${endpoint}`);
-    const response = await fetch(`/api${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
 
-    console.log(`[fetchApi] Response status:`, response.status);
-
     // Handle response
     if (!response.ok) {
       const data = await response.json();
-      console.log('[fetchApi] Error response:', data);
       throw new ApiError(data.message || 'Request failed', response.status);
     }
 
     const data = await response.json();
-    console.log('[fetchApi] Success response:', data);
     return data;
   } catch (error) {
-    console.log('[fetchApi] Error:', error);
     if (error instanceof ApiError) {
       throw error;
     }
-    throw new ApiError(error instanceof Error ? error.message : 'Request failed', 500);
+    throw new ApiError('Network error', 0);
   }
 }
 
@@ -366,15 +338,11 @@ const mockWantlist: WantlistItem[] = [
 
 // Collection and Wantlist API Functions
 export async function getUserCollection(signal?: AbortSignal): Promise<Tape[]> {
-  console.log('[getUserCollection] Starting collection fetch');
   try {
     const collection = await fetchApi<Tape[]>('/collection', { signal });
-    console.log('[getUserCollection] Successfully fetched collection:', collection);
     return collection;
   } catch (error) {
-    console.log('[getUserCollection] Error fetching collection:', error);
     if (error instanceof ApiError && error.status === 404) {
-      console.log('[getUserCollection] Collection not found, returning empty array');
       return [];
     }
     throw error;
@@ -383,18 +351,29 @@ export async function getUserCollection(signal?: AbortSignal): Promise<Tape[]> {
 
 export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
   try {
-    return await fetchApi<WantlistItem[]>('/wantlist', {
-      signal,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const wantlist = await fetchApi<WantlistItem[]>('/wantlist', { signal });
+    return wantlist;
   } catch (error) {
-    console.log('[getUserWantlist] Error fetching wantlist:', error);
     if (error instanceof ApiError && error.status === 404) {
-      console.log('[getUserWantlist] Wantlist not found, returning empty array');
       return [];
     }
     throw error;
   }
+}
+
+export async function login(email: string, password: string): Promise<void> {
+  const response = await api.post('/auth/login', { email, password });
+  
+  // Store tokens in cookies
+  const { accessToken, refreshToken, expiresIn } = response.data;
+  const cookieOptions = [
+    `path=/`,
+    `max-age=${expiresIn}`,
+    'SameSite=Lax',
+    'Secure'
+  ].join('; ');
+
+  document.cookie = `token=${accessToken}; ${cookieOptions}`;
+  document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
+  document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
 } 

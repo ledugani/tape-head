@@ -18,7 +18,6 @@ export default function WantlistView() {
         setError(null);
       } catch (err) {
         setError('Failed to load wantlist');
-        console.error('Error fetching wantlist:', err);
       } finally {
         setIsLoading(false);
       }
