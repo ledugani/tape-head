@@ -1,257 +1,174 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { fetchApi } from './api';
 
 interface User {
-  id: string;
   email: string;
-  name: string;
-  emailVerified: boolean;
-}
-
-interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-  user: User;
-}
-
-interface VerifyResponse {
-  user: User;
-  sessionId: string;
-}
-
-interface SessionInfo {
-  id: string;
-  device: string;
-  lastActive: string;
-  location?: string;
 }
 
 interface AuthContextType {
-  user: User | null;
   isAuthenticated: boolean;
+  user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  logout: () => Promise<void>;
-  sessionId: string | null;
   hasSessionConflict: boolean;
-  activeSessions: SessionInfo[];
-  resolveSessionConflict: () => Promise<void>;
+  resolveSessionConflict: () => void;
   dismissSessionConflict: () => void;
-  refreshSessionInfo: () => Promise<void>;
-  refreshToken: () => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  logout: () => void;
 }
-
-const TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes in milliseconds
-const REMEMBER_ME_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
-const DEFAULT_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [hasSessionConflict, setHasSessionConflict] = useState(false);
-  const [activeSessions, setActiveSessions] = useState<SessionInfo[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const refreshSessionInfo = useCallback(async () => {
-    if (!sessionId) return;
+  // Debug effect to log state changes
+  useEffect(() => {
+    console.log('Auth state changed:', { isAuthenticated, isLoading, user });
+  }, [isAuthenticated, isLoading, user]);
 
-    try {
-      const response = await fetchApi<{ sessions: SessionInfo[] }>('/auth/sessions', {
-        method: 'GET',
-      });
-      setActiveSessions(response.sessions);
-    } catch (error) {
-      console.error('Failed to fetch session info:', error);
-    }
-  }, [sessionId]);
+  useEffect(() => {
+    console.log('DEBUG: AuthContext loaded');
+    const initializeAuth = () => {
+      try {
+        // Check if localStorage is available
+        if (typeof window === 'undefined' || !window.localStorage) {
+          console.warn('localStorage is not available. Proceeding with empty state.');
+          setIsLoading(false);
+          return;
+        }
 
-  const refreshToken = useCallback(async () => {
-    try {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) throw new Error('No refresh token available');
+        const token = localStorage.getItem('access_token');
+        const tokenExpiry = localStorage.getItem('token_expiry');
+        const userEmail = localStorage.getItem('user_email');
 
-      const response = await fetchApi<AuthResponse>('/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
+        console.log('DEBUG: Initializing auth with:', { token, tokenExpiry, userEmail });
 
-      localStorage.setItem('access_token', response.accessToken);
-      localStorage.setItem('refresh_token', response.refreshToken);
-      localStorage.setItem('token_expiry', String(Date.now() + response.expiresIn * 1000));
-      
-      setUser(response.user);
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      // If refresh fails, logout the user
-      await logout();
-    }
+        if (token && tokenExpiry && parseInt(tokenExpiry) > Date.now()) {
+          console.log('DEBUG: Valid token found, setting authenticated state');
+          setIsAuthenticated(true);
+          if (userEmail) {
+            console.log('DEBUG: Setting user with email:', userEmail);
+            setUser({ email: userEmail });
+          }
+        } else {
+          console.log('DEBUG: No valid token found, clearing auth state');
+          clearAuthState();
+        }
+        setIsLoading(false);
+      } catch (err) {
+        console.error('ERROR in initializeAuth:', err);
+        setError('Failed to initialize authentication context.');
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  const initializeAuth = useCallback(async () => {
+  useEffect(() => {
+    console.log('[AuthContext] useEffect: isLoading', isLoading, 'user', user);
+  }, [isLoading, user]);
+
+  const setAuthState = (
+    tokens: { accessToken: string; refreshToken: string; expiresIn: number },
+    email: string
+  ) => {
+    console.log('DEBUG: Setting auth state with email:', email);
+    const expiryTime = Date.now() + tokens.expiresIn * 1000;
+    localStorage.setItem('access_token', tokens.accessToken);
+    localStorage.setItem('refresh_token', tokens.refreshToken);
+    localStorage.setItem('token_expiry', expiryTime.toString());
+    localStorage.setItem('user_email', email);
+    
+    // Set both states together to avoid race conditions
+    const newUser = { email };
+    console.log('DEBUG: Setting user state:', newUser);
+    setUser(newUser);
+    setIsAuthenticated(true);
+  };
+
+  const clearAuthState = () => {
+    console.log('DEBUG: Clearing auth state');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expiry');
+    localStorage.removeItem('user_email');
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
+  const login = async (email: string, password: string, rememberMe = false) => {
+    console.log('[AuthContext] login called', { email, password, rememberMe });
     try {
-      const token = localStorage.getItem('access_token');
-      const tokenExpiry = localStorage.getItem('token_expiry');
-      
-      if (token && tokenExpiry) {
-        const expiryTime = parseInt(tokenExpiry);
-        const now = Date.now();
-        
-        // If token is expired or about to expire, try to refresh it
-        if (now >= expiryTime - TOKEN_REFRESH_THRESHOLD) {
-          await refreshToken();
-        } else {
-          // Verify token and get user info
-          const response = await fetchApi<VerifyResponse>('/auth/verify', {
-            method: 'GET',
-          });
-          setUser(response.user);
-          setSessionId(response.sessionId);
-        }
-      }
-    } catch (error) {
-      // If token verification fails, clear everything
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('token_expiry');
-      setUser(null);
-      setSessionId(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [refreshToken]);
-
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
-
-  // Set up token refresh interval
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const tokenExpiry = localStorage.getItem('token_expiry');
-      if (tokenExpiry) {
-        const expiryTime = parseInt(tokenExpiry);
-        const now = Date.now();
-        
-        if (now >= expiryTime - TOKEN_REFRESH_THRESHOLD) {
-          refreshToken();
-        }
-      }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, [refreshToken]);
-
-  // Refresh session info periodically
-  useEffect(() => {
-    if (sessionId) {
-      const interval = setInterval(refreshSessionInfo, 30000); // Every 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [sessionId, refreshSessionInfo]);
-
-  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
-    try {
-      const response = await fetchApi<AuthResponse>('/auth/login', {
+      console.log('DEBUG: login called with rememberMe:', rememberMe);
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, rememberMe }),
       });
 
-      const sessionDuration = rememberMe ? REMEMBER_ME_DURATION : DEFAULT_SESSION_DURATION;
-      
-      localStorage.setItem('access_token', response.accessToken);
-      localStorage.setItem('refresh_token', response.refreshToken);
-      localStorage.setItem('token_expiry', String(Date.now() + sessionDuration));
-      localStorage.setItem('session_id', response.sessionId);
+      const data = await response.json();
+      console.log('DEBUG: login response:', data);
 
-      setUser(response.user);
-      setSessionId(response.sessionId);
-      
-      // If email is not verified, redirect to verification page
-      if (!response.user.emailVerified) {
-        router.push('/verify-email');
+      if (data.success) {
+        console.log('DEBUG: login successful, calling setAuthState');
+        setAuthState({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          expiresIn: data.expiresIn,
+        }, data.user.email);
+        console.log('[AuthContext] login success, user set:', data.user.email);
+        console.log('DEBUG: before router.push');
+        router.push(data.redirect || '/dashboard');
+        console.log('DEBUG: after router.push');
       } else {
-        router.push('/dashboard');
+        console.error('DEBUG: login failed:', data.error);
+        throw new Error(data.error || 'Login failed');
       }
-    } catch (error: any) {
-      if (error.code === 'SESSION_CONFLICT') {
-        setHasSessionConflict(true);
-        await refreshSessionInfo();
-      }
+    } catch (error) {
+      console.error('DEBUG: login error:', error);
       throw error;
     }
-  }, [router, refreshSessionInfo]);
+  };
 
-  const logout = useCallback(async () => {
-    try {
-      await fetchApi('/auth/logout', {
-        method: 'POST',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('token_expiry');
-      localStorage.removeItem('session_id');
-      setUser(null);
-      setSessionId(null);
-      setActiveSessions([]);
-      router.push('/login');
-    }
-  }, [router]);
+  const logout = () => {
+    clearAuthState();
+    router.push('/login');
+  };
 
-  const resolveSessionConflict = useCallback(async () => {
-    try {
-      await fetchApi('/auth/logout-other-sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId }),
-      });
-      setHasSessionConflict(false);
-      await refreshSessionInfo();
-    } catch (error) {
-      console.error('Failed to resolve session conflict:', error);
-      await logout();
-    }
-  }, [sessionId, logout, refreshSessionInfo]);
-
-  const dismissSessionConflict = useCallback(() => {
+  const resolveSessionConflict = () => {
     setHasSessionConflict(false);
-  }, []);
+  };
 
-  const value = {
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-    login,
-    logout,
-    sessionId,
-    hasSessionConflict,
-    activeSessions,
-    resolveSessionConflict,
-    dismissSessionConflict,
-    refreshSessionInfo,
-    refreshToken,
+  const dismissSessionConflict = () => {
+    setHasSessionConflict(false);
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {children}
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        user,
+        isLoading,
+        hasSessionConflict,
+        resolveSessionConflict,
+        dismissSessionConflict,
+        login,
+        logout,
+      }}
+    >
+      {error ? (
+        <div style={{ color: 'red', padding: 16 }}>AuthProvider Error: {error}</div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }

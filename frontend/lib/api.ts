@@ -1,31 +1,36 @@
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public code?: string
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
 interface TokenResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
 }
 
+class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 let isRefreshing = false;
 let refreshPromise: Promise<TokenResponse> | null = null;
 
 async function refreshTokens(): Promise<TokenResponse> {
-  const refreshToken = localStorage.getItem('refresh_token');
+  console.log('[refreshTokens] Starting token refresh');
+  const refreshToken = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('refresh_token='))
+    ?.split('=')[1];
+  
+  console.log('[refreshTokens] Refresh token available:', !!refreshToken);
+  
   if (!refreshToken) {
+    console.log('[refreshTokens] No refresh token available');
     throw new ApiError('No refresh token available', 401);
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/auth/refresh`, {
+    console.log('[refreshTokens] Making refresh request');
+    const response = await fetch(`/api/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,36 +39,63 @@ async function refreshTokens(): Promise<TokenResponse> {
     });
 
     const data = await response.json();
+    console.log('[refreshTokens] Refresh response status:', response.status);
 
     if (!response.ok) {
+      console.log('[refreshTokens] Refresh failed:', data);
       throw new ApiError(data.message || 'Failed to refresh token', response.status);
     }
 
-    // Store new tokens
-    localStorage.setItem('auth_token', data.accessToken);
-    localStorage.setItem('refresh_token', data.refreshToken);
-    localStorage.setItem('token_expiry', String(Date.now() + data.expiresIn * 1000));
+    // Store new tokens in cookies
+    console.log('[refreshTokens] Storing new tokens');
+    const cookieOptions = [
+      `path=/`,
+      `max-age=${data.expiresIn}`,
+      'SameSite=Lax',
+      'Secure'
+    ].join('; ');
+
+    document.cookie = `auth-token=${data.accessToken}; ${cookieOptions}`;
+    document.cookie = `refresh_token=${data.refreshToken}; ${cookieOptions}`;
+    document.cookie = `token_expiry=${Date.now() + data.expiresIn * 1000}; ${cookieOptions}`;
 
     return data;
   } catch (error) {
-    // Clear tokens on refresh failure
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('token_expiry');
+    console.log('[refreshTokens] Error during refresh:', error);
+    // Clear cookies on refresh failure
+    document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     throw error;
   }
 }
 
-async function getValidToken(): Promise<string> {
-  const token = localStorage.getItem('auth_token');
-  const expiry = localStorage.getItem('token_expiry');
+export async function getValidToken(): Promise<string> {
+  console.log('[getValidToken] Starting token validation');
+  const token = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('auth-token='))
+    ?.split('=')[1];
+  const expiry = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('token_expiry='))
+    ?.split('=')[1];
   
+  console.log('[getValidToken] Current token state:', { 
+    hasToken: !!token, 
+    hasExpiry: !!expiry,
+    expiryTime: expiry ? new Date(parseInt(expiry)).toISOString() : null,
+    currentTime: new Date().toISOString()
+  });
+
   if (!token || !expiry) {
+    console.log('[getValidToken] No valid token available');
     throw new ApiError('No valid token available', 401);
   }
 
   // If token expires in less than 5 minutes, refresh it
   if (Date.now() + 5 * 60 * 1000 > parseInt(expiry)) {
+    console.log('[getValidToken] Token needs refresh');
     if (!isRefreshing) {
       isRefreshing = true;
       refreshPromise = refreshTokens();
@@ -71,6 +103,7 @@ async function getValidToken(): Promise<string> {
     
     try {
       const { accessToken } = await refreshPromise!;
+      console.log('[getValidToken] Successfully refreshed token');
       return accessToken;
     } finally {
       if (isRefreshing) {
@@ -80,68 +113,6 @@ async function getValidToken(): Promise<string> {
     }
   }
 
+  console.log('[getValidToken] Using existing valid token');
   return token;
-}
-
-// Get the offline context
-let offlineContext: {
-  isOffline: boolean;
-  queueRequest: <T>(endpoint: string, options: RequestInit) => Promise<T>;
-} | null = null;
-
-export function setOfflineContext(context: typeof offlineContext) {
-  offlineContext = context;
-}
-
-export async function fetchApi<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  // Check if we're offline
-  if (offlineContext?.isOffline) {
-    console.log(`[Offline] Queuing request to ${endpoint}`);
-    return offlineContext.queueRequest<T>(endpoint, options);
-  }
-
-  try {
-    const token = await getValidToken();
-    const headers = new Headers(options.headers);
-    
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-      
-      if (response.status === 401) {
-        // Token expired or invalid
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('token_expiry');
-        window.location.href = '/login';
-        throw new ApiError('Session expired. Please log in again.', 401, 'TOKEN_EXPIRED');
-      }
-
-      if (response.status === 0) {
-        // Network error
-        throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
-      }
-
-      throw new ApiError(error.message || 'An error occurred', response.status);
-    }
-
-    return response.json();
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    // Handle network errors
-    throw new ApiError('Network error. Please check your connection.', 0, 'NETWORK_ERROR');
-  }
 } 

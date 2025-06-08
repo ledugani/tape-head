@@ -8,13 +8,15 @@ import { fetchApi, ApiError } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
   const [errors, setErrors] = useState<{
+    username?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
@@ -24,6 +26,12 @@ export default function SignupPage() {
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
+
+    if (!formData.username) {
+      newErrors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
+    }
 
     if (!formData.email) {
       newErrors.email = 'Email is required';
@@ -58,17 +66,40 @@ export default function SignupPage() {
     setErrors({});
 
     try {
-      // First, create the account
-      await fetchApi('/auth/signup', {
+      // First, create the account using direct fetch since registration doesn't require auth
+      const signupResponse = await fetch('/api/auth/register', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: JSON.stringify({
+          username: formData.username,
           email: formData.email,
           password: formData.password,
         }),
       });
 
-      // Then, log the user in
-      await login(formData.email, formData.password);
+      const data = await signupResponse.json();
+
+      if (!signupResponse.ok) {
+        if (data.error === 'User already exists') {
+          setErrors({
+            email: 'An account with this email already exists.',
+          });
+        } else {
+          throw new Error(data.error || 'Failed to create account');
+        }
+        return;
+      }
+      
+      // Store the token
+      localStorage.setItem('access_token', data.token);
+      
+      // Set the user in the auth context
+      setUser(data.user);
+      
+      // Redirect to dashboard
       router.push('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
@@ -146,6 +177,27 @@ export default function SignupPage() {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <label htmlFor="username" className="sr-only">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                required
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.username ? 'border-red-300' : 'border-gray-300'
+                } placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
+                placeholder="Username"
+                value={formData.username}
+                onChange={handleChange}
+              />
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+              )}
+            </div>
             <div>
               <label htmlFor="email" className="sr-only">
                 Email address

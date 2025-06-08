@@ -2,26 +2,32 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // List of public routes that don't require authentication
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
+const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  
-  // Allow public routes
-  if (publicRoutes.includes(pathname)) {
-    return NextResponse.next();
+  const authToken = request.cookies.get('auth-token');
+  const path = request.nextUrl.pathname;
+  const isPublicRoute = publicRoutes.includes(path);
+  const hasValidToken = authToken?.value && (
+    authToken.value.startsWith('mock-token-') || 
+    authToken.value.startsWith('mock-access-token-')
+  );
+
+  // If we have an invalid token, clear it and redirect to login
+  if (authToken && !hasValidToken) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('auth-token');
+    return response;
   }
 
-  // Check for auth token
-  const token = request.cookies.get('auth_token')?.value;
-  
-  // If no token is present, redirect to login
-  if (!token) {
-    const url = new URL('/login', request.url);
-    url.searchParams.set('from', pathname);
-    return NextResponse.redirect(url);
+  // If we're not on a public route and don't have a valid token, redirect to login
+  if (!isPublicRoute && !hasValidToken) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('from', path);
+    return NextResponse.redirect(loginUrl);
   }
 
+  // Allow the request to proceed
   return NextResponse.next();
 }
 
@@ -29,12 +35,12 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }; 

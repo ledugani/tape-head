@@ -1,13 +1,9 @@
-'use client';
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/AuthContext';
 import { OfflineProvider } from '@/lib/OfflineContext';
-import { OfflineBanner } from '@/components/OfflineBanner';
-import { SessionWarning } from '@/components/SessionWarning';
-import { useAuth } from '@/lib/AuthContext';
+import { ClientLayout } from './components/ClientLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -16,24 +12,6 @@ export const metadata: Metadata = {
   description: 'Your music collection, organized.',
 };
 
-function LayoutContent({ children }: { children: React.ReactNode }) {
-  const { hasSessionConflict, resolveSessionConflict, dismissSessionConflict } = useAuth();
-
-  return (
-    <>
-      {children}
-      <OfflineBanner />
-      {hasSessionConflict && (
-        <SessionWarning
-          message="You are logged in on another device. Would you like to log out other sessions?"
-          onConfirm={resolveSessionConflict}
-          onDismiss={dismissSessionConflict}
-        />
-      )}
-    </>
-  );
-}
-
 export default function RootLayout({
   children,
 }: {
@@ -41,10 +19,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <OfflineProvider>
           <AuthProvider>
-            <LayoutContent>{children}</LayoutContent>
+            <ClientLayout>{children}</ClientLayout>
           </AuthProvider>
         </OfflineProvider>
       </body>
