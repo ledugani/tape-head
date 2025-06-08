@@ -41,21 +41,15 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'collection' | 'wantlist'>('collection');
   const [error, setError] = useState<Error | null>(null);
 
-  // Debug logging
-  console.log('Dashboard auth state:', { user, isLoading });
-
   if (isLoading) {
-    console.log('[DashboardPage] Loading...');
     return <LoadingSpinner />;
   }
 
   if (error) {
-    console.log('Dashboard: Error state', error);
     return <ErrorFallback error={error} resetErrorBoundary={() => setError(null)} />;
   }
 
   if (!user) {
-    console.log('[DashboardPage] No user, redirecting or showing error');
     return (
       <div className="text-center py-8">
         <p className="text-red-600">You must be logged in to view this page.</p>
@@ -65,8 +59,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  console.log('[DashboardPage] User:', user);
 
   return (
     <div className="container mx-auto px-4 py-8">

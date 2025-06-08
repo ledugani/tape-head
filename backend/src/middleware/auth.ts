@@ -1,29 +1,29 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import prisma from '../lib/prisma';
+import { PrismaClient } from '@prisma/client';
 
-// Extend Express Request type to include user property
-export interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-  };
+const prisma = new PrismaClient();
+
+// Extend Express Request type to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any; // Replace 'any' with your User type if available
+    }
+  }
 }
 
-export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Get token from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: number };
-
-    console.log('Auth request:', { headers: req.headers, token });
 
     // Find user
     const user = await prisma.user.findUnique({
@@ -31,14 +31,14 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(401).json({ message: 'User not found' });
     }
 
     // Attach user to request
-    (req as any).user = user;
+    req.user = user;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ message: 'Invalid token' });
   }
 }; 

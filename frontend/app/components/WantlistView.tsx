@@ -2,7 +2,7 @@
 
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { useWantlist } from '@/src/hooks/useWantlist';
+import { useWantlist } from '@/hooks/useWantlist';
 
 function LoadingSkeleton() {
   return (
@@ -80,10 +80,13 @@ function WantlistContent() {
             <h3 className="text-lg font-medium text-gray-900 truncate">{item.tape.title}</h3>
             <div className="mt-2 space-y-1">
               <p className="text-sm text-gray-600">
-                <span className="font-medium">Director:</span> {item.tape.director}
+                <span className="font-medium">Year:</span> {item.tape.releaseYear}
               </p>
               <p className="text-sm text-gray-600">
-                <span className="font-medium">Year:</span> {item.tape.releaseYear}
+                <span className="font-medium">Genre:</span> {item.tape.genre}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Label:</span> {item.tape.label}
               </p>
             </div>
           </div>
