@@ -189,31 +189,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }
   }, [sessionId, refreshSessionInfo]);
 
-  const login = async (email: string, password: string, rememberMe: boolean) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      const { accessToken, refreshToken, expiresIn } = response.data;
-
-      // Store tokens in cookies
-      const cookieOptions = [
-        `path=/`,
-        `max-age=${expiresIn}`,
-        'SameSite=Lax',
-        'Secure'
-      ].join('; ');
-
-      document.cookie = `token=${accessToken}; ${cookieOptions}`;
-      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
-      document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
-
-      setUser(response.data.user);
-      setIsAuthenticated(true);
-    } catch (error) {
-      setIsAuthenticated(false);
-      setUser(null);
-      throw error;
-    }
+  const login = async (email: string, password: string, rememberMe: boolean): Promise<User> => {
+	try {
+	  const response = await api.post('/auth/login', { email, password });
+	  const { accessToken, refreshToken, expiresIn, user } = response.data;
+  
+	  // Store tokens in cookies
+	  const cookieOptions = [
+		`path=/`,
+		`max-age=${expiresIn}`,
+		'SameSite=Lax',
+		'Secure'
+	  ].join('; ');
+  
+	  document.cookie = `token=${accessToken}; ${cookieOptions}`;
+	  document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
+	  document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+  
+	  setUser(user);
+	  setIsAuthenticated(true);
+	  return user;
+	} catch (error) {
+	  setIsAuthenticated(false);
+	  setUser(null);
+	  throw error;
+	}
   };
+  
 
   const logout = async () => {
     try {

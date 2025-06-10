@@ -6,7 +6,7 @@ import {
   updatePublisher, 
   deletePublisher 
 } from '../controllers/publishers';
-import { authenticate } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -17,12 +17,12 @@ router.get('/', getAllPublishers as any);
 router.get('/:id', getPublisherById as any);
 
 // POST /api/publishers - Create new publisher (protected)
-router.post('/', authenticate as any, createPublisher as any);
+router.post('/', authenticateToken as any, createPublisher as any);
 
 // PUT /api/publishers/:id - Update publisher (protected)
-router.put('/:id', authenticate as any, updatePublisher as any);
+router.put('/:id', authenticateToken as any, updatePublisher as any);
 
 // DELETE /api/publishers/:id - Delete publisher (protected)
-router.delete('/:id', authenticate as any, deletePublisher as any);
+router.delete('/:id', authenticateToken as any, deletePublisher as any);
 
 export default router; 
