@@ -274,16 +274,16 @@ export interface WantlistItem {
 }
 
 // Mock data for development
-const mockTapes: Tape[] = [
+export const mockTapes: Tape[] = [
   {
     id: "1",
     title: "The Terminator",
     releaseYear: 1984,
-    genre: "Action",
+    genre: "Action/Sci-Fi",
     label: "Orion Pictures",
     format: "VHS",
-    notes: "",
-    coverImage: "https://example.com/terminator.jpg",
+    notes: "A cyborg assassin is sent back in time to kill Sarah Connor, whose unborn son will lead humanity in a war against the machines.",
+    coverImage: "https://static.wikia.nocookie.net/polygram-video/images/0/08/The_Terminator_VHS_Cover_1988.jpg/revision/latest/scale-to-width-down/400?cb=20221122124225",
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -291,11 +291,11 @@ const mockTapes: Tape[] = [
     id: "2",
     title: "Back to the Future",
     releaseYear: 1985,
-    genre: "Sci-Fi",
+    genre: "Adventure/Sci-Fi",
     label: "Universal Pictures",
     format: "VHS",
-    notes: "",
-    coverImage: "https://example.com/back-to-future.jpg",
+    notes: "Marty McFly, a 17-year-old high school student, is accidentally sent thirty years into the past in a time-traveling DeLorean invented by his close friend, the maverick scientist Doc Brown.",
+    coverImage: "https://vhscollector.com/sites/default/files/vhsimages/32147_BTTF%2520cover.jpg",
     createdAt: new Date(),
     updatedAt: new Date()
   }

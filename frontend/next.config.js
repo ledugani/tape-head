@@ -1,4 +1,8 @@
-module.exports = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    domains: ['static.wikia.nocookie.net', 'vhscollector.com'],
+  },
   async rewrites() {
     return [
       {
@@ -7,4 +11,6 @@ module.exports = {
       },
     ];
   },
-}; 
+};
+
+module.exports = nextConfig; 

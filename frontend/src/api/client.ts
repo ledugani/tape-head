@@ -1,4 +1,5 @@
-import { Tape, Publisher } from '../types';
+import { Publisher } from '../types';
+import { Tape } from '../lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -10,6 +11,18 @@ export const getTapes = async (): Promise<Tape[]> => {
   });
   if (!response.ok) {
     throw new Error('Failed to fetch tapes');
+  }
+  return response.json();
+};
+
+export const getTape = async (id: string): Promise<Tape> => {
+  const response = await fetch(`${API_URL}/tapes/${id}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch tape');
   }
   return response.json();
 };
