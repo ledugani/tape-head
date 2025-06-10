@@ -2,16 +2,16 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/AuthContext';
-import { OfflineProvider } from '@/src/lib/OfflineContext';
-import { ClientLayout } from './components/ClientLayout';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
+import { OfflineProvider } from '@/lib/OfflineContext';
+import { ClientLayout } from '@/components/ClientLayout';
+import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Tape Head',
-  description: 'Your music collection, organized.',
+  description: 'Your VHS collection, organized.',
 };
 
 export default function RootLayout({

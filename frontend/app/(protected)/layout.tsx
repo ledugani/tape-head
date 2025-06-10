@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/lib/AuthContext';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function ProtectedLayout({
@@ -11,7 +11,6 @@ export default function ProtectedLayout({
 }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

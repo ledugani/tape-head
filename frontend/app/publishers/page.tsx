@@ -1,6 +1,6 @@
 import React from 'react';
-import { getPublishers } from '@/src/api/client';
-import { Publisher } from '@/src/types/api';
+import { getPublishers } from '@/api/client';
+import { Publisher } from '@/types/api';
 import Link from 'next/link';
 
 export default async function PublishersPage() {

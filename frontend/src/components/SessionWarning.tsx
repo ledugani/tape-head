@@ -1,20 +1,29 @@
 'use client';
 
-import { useAuth } from '@/lib/AuthContext';
+interface SessionWarningProps {
+  message: string;
+  onConfirm: () => Promise<void>;
+  onDismiss: () => void;
+}
 
-export function SessionWarning() {
-  const { sessionExpiry } = useAuth();
-
-  if (!sessionExpiry) return null;
-
-  const timeUntilExpiry = sessionExpiry - Date.now();
-  const minutesUntilExpiry = Math.floor(timeUntilExpiry / (1000 * 60));
-
-  if (minutesUntilExpiry > 5) return null;
-
+export function SessionWarning({ message, onConfirm, onDismiss }: SessionWarningProps) {
   return (
-    <div className="bg-red-500 text-white p-2 text-center">
-      Your session will expire in {minutesUntilExpiry} minutes. Please save your work.
+    <div className="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+      <p className="text-gray-900 mb-4">{message}</p>
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={onDismiss}
+          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+        >
+          Dismiss
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+        >
+          Log Out Other Sessions
+        </button>
+      </div>
     </div>
   );
 } 

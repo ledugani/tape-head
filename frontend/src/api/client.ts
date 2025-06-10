@@ -1,5 +1,5 @@
-import { Publisher } from '../types/api';
-import { Tape } from '../types/api';
+import { Publisher } from '@/types/api';
+import { Tape } from '@/types/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 

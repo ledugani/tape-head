@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { User, Publisher, BoxSet, Tape, WantlistItem, CollectionItem } from '@/types/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -66,50 +67,20 @@ api.interceptors.response.use(
   }
 );
 
-export interface WantlistItem {
-  id: string;
-  tapeId: string;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  tape: {
-    id: string;
-    title: string;
-    artist: string;
-    year: number;
-    genre: string;
-    condition: string;
-    price: number;
-    imageUrl: string;
-  };
-}
-
-export interface CollectionItem {
-  id: string;
-  tapeId: string;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  tape: {
-    id: string;
-    title: string;
-    artist: string;
-    year: number;
-    genre: string;
-    condition: string;
-    price: number;
-    imageUrl: string;
-  };
-}
-
 export async function getUserCollection(signal?: AbortSignal): Promise<CollectionItem[]> {
   const response = await api.get('/collection', { signal });
-  return response.data;
+  if (response.data.success) {
+    return response.data.data;
+  }
+  throw new ApiError('Failed to fetch collection', response.status);
 }
 
 export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
   const response = await api.get('/wantlist', { signal });
-  return response.data;
+  if (response.data.success) {
+    return response.data.data;
+  }
+  throw new ApiError('Failed to fetch wantlist', response.status);
 }
 
 export { api };
@@ -123,41 +94,6 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
-}
-
-// Collection and Wantlist Types
-export interface Publisher {
-  id: string;
-  name: string;
-  description?: string;
-  logoImage?: string;
-}
-
-export interface BoxSet {
-  id: string;
-  title: string;
-  year?: number;
-  coverImage?: string;
-  description?: string;
-}
-
-export interface Tape {
-  id: string;
-  title: string;
-  releaseYear: number;
-  genre: string;
-  label: string;
-  format: string;
-  notes?: string;
-  coverImage: string;
-  coverWidth?: number;
-  coverHeight?: number;
-  publisherId?: string;
-  publisher?: Publisher;
-  boxSetId?: string;
-  boxSet?: BoxSet;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 // API Functions
@@ -199,7 +135,7 @@ export async function fetchApi<T>(
     // Prepare headers
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       ...options.headers,
     };
 
@@ -209,98 +145,63 @@ export async function fetchApi<T>(
       headers,
     });
 
-    // Handle response
     if (!response.ok) {
-      const data = await response.json();
-      throw new ApiError(data.message || 'Request failed', response.status);
+      throw new ApiError(
+        response.statusText,
+        response.status,
+        response.statusText
+      );
     }
 
-    const data = await response.json();
-    return data;
+    return response.json();
   } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
+    if (offlineContext?.isOffline) {
+      return offlineContext.queueRequest(endpoint, options);
     }
-    throw new ApiError('Network error', 0);
-  }
-}
-
-let isRefreshing = false;
-let refreshPromise: Promise<TokenResponse> | null = null;
-
-async function refreshTokens(): Promise<TokenResponse> {
-  const refreshToken = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('refresh_token='))
-    ?.split('=')[1];
-  
-  if (!refreshToken) {
-    throw new ApiError('No refresh token available', 401);
-  }
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    const data = await response.json();
-
-    // Store new tokens in cookies
-    const cookieOptions = [
-      `path=/`,
-      `max-age=${data.expiresIn}`,
-      'SameSite=Lax',
-      'Secure'
-    ].join('; ');
-
-    document.cookie = `token=${data.accessToken}; ${cookieOptions}`;
-    document.cookie = `refresh_token=${data.refreshToken}; ${cookieOptions}`;
-    document.cookie = `token_expiry=${Date.now() + data.expiresIn * 1000}; ${cookieOptions}`;
-
-    return data;
-  } catch (error) {
-    // Clear cookies on refresh failure
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     throw error;
   }
 }
 
-async function getValidToken(): Promise<string> {
-  const token = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('token='))
-    ?.split('=')[1];
-  const expiry = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('token_expiry='))
-    ?.split('=')[1];
-  
-  if (!token || !expiry) {
-    throw new ApiError('No valid token available', 401);
+async function refreshTokens(): Promise<TokenResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new ApiError(
+      'Failed to refresh token',
+      response.status,
+      response.statusText
+    );
   }
 
-  // If token expires in less than 5 minutes, refresh it
-  if (Date.now() + 5 * 60 * 1000 > parseInt(expiry)) {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      refreshPromise = refreshTokens();
-    }
-    
-    try {
-      const { accessToken } = await refreshPromise!;
-      return accessToken;
-    } finally {
-      if (isRefreshing) {
-        isRefreshing = false;
-        refreshPromise = null;
-      }
-    }
+  const data = await response.json();
+  return data;
+}
+
+async function getValidToken(): Promise<string> {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const token = cookies['token'];
+  const tokenExpiry = cookies['token_expiry'];
+
+  if (!token || !tokenExpiry) {
+    throw new ApiError('No token found', 401);
+  }
+
+  const expiryTime = parseInt(tokenExpiry, 10);
+  if (Date.now() >= expiryTime) {
+    const { accessToken } = await refreshTokens();
+    return accessToken;
   }
 
   return token;

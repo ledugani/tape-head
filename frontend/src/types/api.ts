@@ -1,3 +1,11 @@
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Publisher {
   id: string;
   name: string;
@@ -5,6 +13,8 @@ export interface Publisher {
   description?: string;
   logoImage?: string;
   tapes: Tape[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BoxSet {
@@ -18,7 +28,7 @@ export interface BoxSet {
 }
 
 export interface Tape {
-  id: number;
+  id: string;
   title: string;
   year: number;
   genre?: string;
@@ -26,6 +36,8 @@ export interface Tape {
   label?: string;
   coverImage?: string;
   notes?: string;
+  condition?: string;
+  price?: number;
   publisherId?: string;
   publisher?: Publisher;
   boxSetId?: number;
@@ -38,6 +50,14 @@ export interface WantlistItem {
   id: string;
   tape: Tape;
   priority: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CollectionItem {
+  id: string;
+  tape: Tape;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;

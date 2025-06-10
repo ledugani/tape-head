@@ -1,14 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Tape } from '../types/api';
-import { api } from '../lib/api';
-
-interface CollectionItem {
-  id: number;
-  tape: Tape;
-  condition?: string;
-  notes?: string;
-  addedAt: string;
-}
+import { Tape, CollectionItem } from '@/types/api';
+import { api } from '@/lib/api';
 
 export function useCollection() {
   const [tapes, setTapes] = useState<Tape[]>([]);

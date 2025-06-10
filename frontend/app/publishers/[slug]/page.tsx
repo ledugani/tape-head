@@ -1,6 +1,6 @@
 import React from 'react';
-import { getPublisher } from '@/src/api/client';
-import { Publisher } from '@/src/types/api';
+import { getPublisher } from '@/api/client';
+import { Publisher } from '@/types/api';
 import Link from 'next/link';
 import Image from 'next/image';
 

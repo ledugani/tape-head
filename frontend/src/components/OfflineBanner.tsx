@@ -1,6 +1,6 @@
 'use client';
 
-import { useOffline } from '@/src/lib/OfflineContext';
+import { useOffline } from '@/lib/OfflineContext';
 import { useEffect, useState } from 'react';
 
 export function OfflineBanner() {

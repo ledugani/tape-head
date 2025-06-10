@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getPublisher } from '../../../api/client';
-import { Publisher } from '../../../types';
+import { getPublisher } from '@/api/client';
+import type { Publisher } from '@/types/api';
 import Image from 'next/image';
 import Link from 'next/link';
 

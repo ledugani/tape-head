@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getTape } from '@/src/api/client';
-import type { Tape } from '@/src/types/api';
+import { getTape } from '@/api/client';
+import type { Tape } from '@/types/api';
 import Image from 'next/image';
 import Link from 'next/link';
 

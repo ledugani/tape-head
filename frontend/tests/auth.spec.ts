@@ -2,49 +2,31 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
   test('should handle login and collection loading', async ({ page }) => {
-    console.log('[Test] Starting login test');
-    
-    // Enable console logging
-    page.on('console', msg => console.log(`[Browser Console] ${msg.text()}`));
-    
-    // Log navigation events
-    page.on('request', request => console.log(`[Navigation] Request: ${request.url()}`));
-    page.on('response', response => console.log(`[Navigation] Response: ${response.url()} - ${response.status()}`));
-    
-    console.log('[Test] Navigating to login page');
+    // Navigate to login page
     await page.goto('/login');
-    console.log('[Test] Login page loaded');
     
-    // Take a screenshot and log page content
-    await page.screenshot({ path: 'login-page.png', fullPage: true });
-    const content = await page.content();
-    console.log('[Test] Page content:', content);
-    
-    console.log('[Test] Filling login form');
-    await page.fill('input[name="email"]', 'user@example.com');
+    // Fill in login form
+    await page.fill('input[name="email"]', 'test@example.com');
     await page.fill('input[name="password"]', 'password123');
     
-    console.log('[Test] Clicking login button');
+    // Click login button
     await page.click('button[type="submit"]');
     
-    // Wait for navigation and log the URL
+    // Wait for navigation to dashboard
     await page.waitForURL('**/dashboard');
-    console.log('[Test] Navigated to dashboard:', page.url());
     
     // Verify dashboard content
-    await expect(page.locator('[data-testid="dashboard-welcome"]')).toBeVisible();
-    console.log('[Test] Dashboard welcome message found');
+    await expect(page.locator('h1')).toContainText('Dashboard');
     
     // Verify collection loading
     await expect(page.locator('[data-testid="collection-list"]')).toBeVisible();
-    console.log('[Test] Collection list found');
   });
 
   test('should handle logout correctly', async ({ page }) => {
     // Navigate to login page
     await page.goto('/login');
     
-    // Clear any existing auth state after navigation
+    // Clear any existing auth state
     await page.evaluate(() => {
       localStorage.clear();
       document.cookie.split(';').forEach(cookie => {
@@ -53,23 +35,23 @@ test.describe('Authentication', () => {
     });
 
     // Fill in login form
-    await page.fill('input[type="email"]', 'iamtest@test.com');
-    await page.fill('input[type="password"]', 'password1');
+    await page.fill('input[name="email"]', 'test@example.com');
+    await page.fill('input[name="password"]', 'password123');
     
     // Click login and wait for navigation
     await Promise.all([
       page.waitForURL('/dashboard'),
-      page.click('[data-testid="login-button"]')
+      page.click('button[type="submit"]')
     ]);
 
     // Wait for dashboard to load
-    await page.waitForSelector('[data-testid="dashboard-welcome"]', { state: 'visible', timeout: 10000 });
+    await page.waitForSelector('h1', { state: 'visible', timeout: 10000 });
 
-    // Click logout and wait for navigation
-    await Promise.all([
-      page.waitForURL('/login'),
-      page.click('[data-testid="logout-button"]')
-    ]);
+    // Click logout
+    await page.click('[data-testid="logout-button"]');
+
+    // Wait for navigation to login page
+    await page.waitForURL('/login');
 
     // Verify auth state is cleared
     const authState = await page.evaluate(() => ({

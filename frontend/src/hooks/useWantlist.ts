@@ -1,39 +1,41 @@
-import { useState, useEffect, useCallback } from 'react';
-import { api } from '../lib/api';
-import type { Tape, WantlistItem } from '../lib/api';
+import { useState, useEffect } from 'react';
+import { api, WantlistItem } from '@/lib/api';
 
 export function useWantlist() {
   const [items, setItems] = useState<WantlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWantlist = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await api.get('/wantlist');
-      if (response.data.success) {
-        setItems(response.data.data);
-      } else {
-        setError(response.data.message || 'Failed to load wantlist');
-        setItems([]);
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchWantlist = async () => {
+      try {
+        setIsLoading(true);
+        const response = await api.get('/wantlist');
+        if (response.data.success && isMounted) {
+          setItems(response.data.data);
+          setError(null);
+        } else if (isMounted) {
+          setError(response.data.message || 'Failed to fetch wantlist');
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError('Failed to fetch wantlist');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    } catch (err) {
-      setError('Failed to load wantlist. Please try again.');
-      setItems([]);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    fetchWantlist();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    fetchWantlist();
-  }, [fetchWantlist]);
-
-  return {
-    items,
-    isLoading,
-    error,
-    refetch: fetchWantlist,
-  };
+  return { items, isLoading, error };
 }
