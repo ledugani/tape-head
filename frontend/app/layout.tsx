@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/lib/AuthContext';
 import { OfflineProvider } from '@/lib/OfflineContext';
 import { ClientLayout } from './components/ClientLayout';
+import { Navbar } from './components/Navbar';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <OfflineProvider>
           <AuthProvider>
+            <Navbar />
             <ClientLayout>{children}</ClientLayout>
           </AuthProvider>
         </OfflineProvider>
