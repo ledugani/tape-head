@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
@@ -10,22 +10,22 @@ interface PublisherInput {
 }
 
 // GET /publishers - List all publishers
-export const getAllPublishers = async (_req: any, res: Response): Promise<Response> => {
+export const getAllPublishers = async (_req: Request, res: Response) => {
   try {
     const publishers = await prisma.publisher.findMany({
       include: {
         tapes: true
       }
     });
-    return res.json(publishers);
+    res.json(publishers);
   } catch (error) {
     console.error('Error fetching publishers:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 // GET /publishers/:slug - Get publisher details by slug
-export const getPublisher = async (req: { params: { slug: string } }, res: Response): Promise<Response> => {
+export const getPublisher = async (req: Request, res: Response) => {
   try {
     const publisher = await prisma.publisher.findUnique({
       where: { slug: req.params.slug },
@@ -35,13 +35,14 @@ export const getPublisher = async (req: { params: { slug: string } }, res: Respo
     });
 
     if (!publisher) {
-      return res.status(404).json({ error: 'Publisher not found' });
+      res.status(404).json({ error: 'Publisher not found' });
+      return;
     }
 
-    return res.json(publisher);
+    res.json(publisher);
   } catch (error) {
     console.error('Error fetching publisher:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -55,6 +56,7 @@ export const createPublisher = async (req: AuthRequest & { body: PublisherInput 
     }
 
     const { name, description, logoImage } = req.body;
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     // Validate required fields
     if (!name) {
@@ -74,6 +76,7 @@ export const createPublisher = async (req: AuthRequest & { body: PublisherInput 
     const publisher = await prisma.publisher.create({
       data: {
         name,
+        slug,
         description,
         logoImage
       }

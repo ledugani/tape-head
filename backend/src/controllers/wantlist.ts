@@ -157,7 +157,7 @@ export const deleteFromWantlist = async (req: AuthRequest & { params: { id: stri
     // Check if the wantlist entry exists and belongs to the user
     const wantlistEntry = await prisma.userWantlist.findUnique({
       where: {
-        id: id as unknown as number
+        id
       }
     });
 
@@ -174,7 +174,7 @@ export const deleteFromWantlist = async (req: AuthRequest & { params: { id: stri
     try {
       await prisma.userWantlist.delete({
         where: {
-          id: id as unknown as number
+          id
         }
       });
 

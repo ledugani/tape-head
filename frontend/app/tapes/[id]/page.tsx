@@ -187,7 +187,7 @@ export default function TapePage({ params }: { params: { id: string } }) {
               <div>
                 <h2 className="text-lg font-semibold mb-2">Part of Box Set</h2>
                 <Link 
-                  href={`/box-sets/${tape.boxSet.id}`}
+                  href={`/boxsets/${tape.boxSet.id}`}
                   className="inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   <span>{tape.boxSet.title}</span>

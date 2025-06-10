@@ -18,13 +18,14 @@ export interface Publisher {
 }
 
 export interface BoxSet {
-  id: string;
+  id: number;
   title: string;
   year?: number;
   label?: string;
   coverImage?: string;
   description?: string;
   tapes: Tape[];
+  createdAt: string;
 }
 
 export interface Tape {
