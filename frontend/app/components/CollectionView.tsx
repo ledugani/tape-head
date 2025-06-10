@@ -82,7 +82,7 @@ function CollectionContent() {
   );
 }
 
-export default function CollectionView() {
+export function CollectionView() {
   return (
     <Suspense fallback={<LoadingSkeleton />}>
       <CollectionContent />

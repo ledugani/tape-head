@@ -268,7 +268,7 @@ async function main() {
           
           // Verify entry is actually deleted
           const deletedEntry = await prisma.userWantlist.findUnique({
-            where: { id: wantlistEntryId }
+            where: { id: String(wantlistEntryId) }
           });
           
           if (!deletedEntry) {
