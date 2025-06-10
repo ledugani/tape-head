@@ -12,13 +12,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     <>
       {children}
       <OfflineBanner />
-      {hasSessionConflict && (
-        <SessionWarning
-          message="You are logged in on another device. Would you like to log out other sessions?"
-          onConfirm={resolveSessionConflict}
-          onDismiss={dismissSessionConflict}
-        />
-      )}
+      {hasSessionConflict && <SessionWarning />}
     </>
   );
 } 
