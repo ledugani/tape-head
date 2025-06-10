@@ -36,9 +36,11 @@ export default function TapeDetailPage({ params }: { params: { id: string } }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Cover Image Skeleton */}
-          <div className="md:w-1/3">
-            <div className="relative aspect-[3/4] w-full max-w-sm mx-auto">
-              <div className="w-full h-full bg-gray-200 rounded-lg shadow-lg animate-pulse" />
+          <div className="md:w-1/3 flex justify-center">
+            <div className="relative w-[256px] h-[352px] bg-white dark:bg-neutral-900 rounded-lg shadow-md">
+              <div className="absolute inset-0.5 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+                <div className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              </div>
             </div>
           </div>
 
@@ -47,7 +49,7 @@ export default function TapeDetailPage({ params }: { params: { id: string } }) {
             {/* Title Skeleton */}
             <div className="h-8 bg-gray-200 rounded w-3/4 mb-6 animate-pulse" />
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Details Section Skeleton */}
               <div>
                 <div className="h-6 bg-gray-200 rounded w-24 mb-4 animate-pulse" />
@@ -116,15 +118,21 @@ export default function TapeDetailPage({ params }: { params: { id: string } }) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row gap-8">
         {/* Cover Image */}
-        <div className="md:w-1/3">
-          <div className="relative aspect-[3/4] w-full max-w-sm mx-auto">
-            <Image
-              src={tape.coverImage}
-              alt={tape.title}
-              fill
-              className="object-cover rounded-lg shadow-lg"
-              priority
-            />
+        <div className="md:w-1/3 flex justify-center">
+          <div className="relative w-[256px] h-[352px] bg-white dark:bg-neutral-900 rounded-lg shadow-md">
+            <div className="absolute inset-0.5 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+              <Image
+                src={tape.coverImage}
+                alt={`${tape.title} VHS cover`}
+                fill
+                className="object-contain p-1"
+                priority
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/images/placeholder-vhs.png';
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -184,4 +192,4 @@ export default function TapeDetailPage({ params }: { params: { id: string } }) {
       </div>
     </div>
   );
-} 
+}

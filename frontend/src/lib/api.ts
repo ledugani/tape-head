@@ -263,6 +263,8 @@ export interface Tape {
   format: string;
   notes: string;
   coverImage: string;
+  coverWidth?: number;
+  coverHeight?: number;
   createdAt: Date;
   updatedAt: Date;
 }
