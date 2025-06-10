@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tape } from '../types/api';
+import { api } from '../lib/api';
 
 interface CollectionItem {
   id: number;
@@ -15,22 +16,37 @@ export function useCollection() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchCollection = async () => {
       try {
-        const response = await fetch('/api/collection');
-        if (!response.ok) {
-          throw new Error('Failed to fetch collection');
+        const response = await api.get('/collection');
+        
+        if (isMounted) {
+          if (response.data.success) {
+            const data: CollectionItem[] = response.data.data;
+            setTapes(data.map(item => item.tape));
+            setError(null);
+          } else {
+            setError(response.data.message || 'Failed to fetch collection');
+          }
         }
-        const data: CollectionItem[] = await response.json();
-        setTapes(data.map(item => item.tape));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'An error occurred');
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchCollection();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return { tapes, isLoading, error };

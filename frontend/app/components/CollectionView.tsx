@@ -44,14 +44,17 @@ function CollectionContent() {
 
   if (tapes.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-600 mb-4">Your collection is empty</p>
-        <Link
-          href="/tapes"
-          className="text-blue-500 hover:underline"
-        >
-          Browse tapes
-        </Link>
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-gray-900">Your collection is empty</h3>
+        <p className="mt-2 text-gray-600">Start building your collection by adding some tapes!</p>
+        <div className="mt-6">
+          <Link
+            href="/tapes"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+          >
+            Browse Tapes
+          </Link>
+        </div>
       </div>
     );
   }

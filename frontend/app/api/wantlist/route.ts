@@ -20,9 +20,9 @@ export async function GET() {
       data: []
     });
   } catch (error) {
-    console.error('Collection fetch error:', error);
+    console.error('Wantlist fetch error:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch collection' },
+      { success: false, message: 'Failed to fetch wantlist' },
       { status: 500 }
     );
   }

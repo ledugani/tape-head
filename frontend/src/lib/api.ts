@@ -1,26 +1,30 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true // Enable sending cookies with requests
 });
 
 // Add a request interceptor to add the auth token
 api.interceptors.request.use(async (config) => {
-  // Get the token from cookies
-  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-    const [key, value] = cookie.trim().split('=');
-    acc[key] = value;
-    return acc;
-  }, {} as Record<string, string>);
+  // Only try to access cookies in browser environment
+  if (typeof window !== 'undefined') {
+    // Get the token from cookies
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
 
-  const token = cookies['token'];
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    const token = cookies['token'];
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
 
   return config;
@@ -37,74 +41,76 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Get the refresh token from cookies
-        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-          const [key, value] = cookie.trim().split('=');
-          acc[key] = value;
-          return acc;
-        }, {} as Record<string, string>);
-
-        const refreshToken = cookies['refresh_token'];
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
         // Try to refresh the token
-        const response = await api.post('/auth/refresh', { refreshToken });
-        const { accessToken, expiresIn } = response.data;
+        const response = await api.post('/auth/refresh');
+        const { accessToken } = response.data;
 
-        // Update the token cookie
-        const cookieOptions = [
-          `path=/`,
-          `max-age=${expiresIn}`,
-          'SameSite=Lax',
-          'Secure'
-        ].join('; ');
-
-        document.cookie = `token=${accessToken}; ${cookieOptions}`;
-        document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+        // Update the token in cookies
+        if (typeof window !== 'undefined') {
+          document.cookie = `token=${accessToken}; path=/; max-age=${60 * 60 * 24}; SameSite=Lax; Secure`;
+        }
 
         // Retry the original request with the new token
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, clear cookies and redirect to login
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        window.location.href = '/login';
+        // If refresh fails, redirect to login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
-    }
-
-    // Handle specific error cases
-    if (error.response) {
-      const { status, data } = error.response;
-      
-      switch (status) {
-        case 400:
-          throw new Error(data.message || 'Invalid request. Please check your input.');
-        case 401:
-          throw new Error('Your session has expired. Please log in again.');
-        case 403:
-          throw new Error('You do not have permission to perform this action.');
-        case 404:
-          throw new Error('The requested resource was not found.');
-        case 500:
-          throw new Error('An unexpected error occurred. Please try again later.');
-        default:
-          throw new Error(data.message || 'An error occurred. Please try again.');
-      }
-    }
-
-    // Handle network errors
-    if (error.request) {
-      throw new Error('Network error. Please check your internet connection.');
     }
 
     return Promise.reject(error);
   }
 );
+
+export interface WantlistItem {
+  id: string;
+  tapeId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  tape: {
+    id: string;
+    title: string;
+    artist: string;
+    year: number;
+    genre: string;
+    condition: string;
+    price: number;
+    imageUrl: string;
+  };
+}
+
+export interface CollectionItem {
+  id: string;
+  tapeId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  tape: {
+    id: string;
+    title: string;
+    artist: string;
+    year: number;
+    genre: string;
+    condition: string;
+    price: number;
+    imageUrl: string;
+  };
+}
+
+export async function getUserCollection(signal?: AbortSignal): Promise<CollectionItem[]> {
+  const response = await api.get('/collection', { signal });
+  return response.data;
+}
+
+export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
+  const response = await api.get('/wantlist', { signal });
+  return response.data;
+}
 
 export { api };
 
@@ -154,39 +160,7 @@ export interface Tape {
   updatedAt: Date;
 }
 
-export interface WantlistItem {
-  id: string;
-  tape: Tape;
-  addedAt: string;
-}
-
 // API Functions
-export async function getUserCollection(signal?: AbortSignal): Promise<Tape[]> {
-  const response = await fetch(`${API_BASE_URL}/collection`, {
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch collection');
-  }
-  return response.json();
-}
-
-export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
-  const response = await fetch(`${API_BASE_URL}/wantlist`, {
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch wantlist');
-  }
-  return response.json();
-}
-
 export async function login(email: string, password: string): Promise<void> {
   const response = await api.post('/auth/login', { email, password });
   

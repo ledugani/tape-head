@@ -21,24 +21,31 @@ export async function POST(request: Request) {
         user: { email }
       });
       
-      // Set cookie expiration based on remember me
-      response.cookies.set('auth-token', accessToken, {
-        httpOnly: false, // Allow JavaScript access
+      // Set access token cookie
+      response.cookies.set('token', accessToken, {
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: expiresIn,
-        domain: 'localhost' // Ensure cookies work in development
+        maxAge: expiresIn
       });
 
       // Set refresh token cookie
       response.cookies.set('refresh_token', refreshToken, {
-        httpOnly: false, // Allow JavaScript access
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: expiresIn,
-        domain: 'localhost' // Ensure cookies work in development
+        maxAge: expiresIn
+      });
+
+      // Set token expiry cookie
+      response.cookies.set('token_expiry', String(Date.now() + expiresIn * 1000), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: expiresIn
       });
       
       return response;

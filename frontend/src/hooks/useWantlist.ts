@@ -12,7 +12,12 @@ export function useWantlist() {
     setError(null);
     try {
       const response = await api.get('/wantlist');
-      setItems(response.data);
+      if (response.data.success) {
+        setItems(response.data.data);
+      } else {
+        setError(response.data.message || 'Failed to load wantlist');
+        setItems([]);
+      }
     } catch (err) {
       setError('Failed to load wantlist. Please try again.');
       setItems([]);

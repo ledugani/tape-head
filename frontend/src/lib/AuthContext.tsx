@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         return acc;
       }, {} as Record<string, string>);
 
-      const tokenExpiry = cookies['token-expiry'];
+      const tokenExpiry = cookies['token_expiry'];
       if (tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry);
         const now = Date.now();
