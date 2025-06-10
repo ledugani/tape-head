@@ -1,13 +1,20 @@
 import React from 'react';
-import { Button } from '@/components/Button';
+import { Button } from '@/src/components/Button';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-blue-50">
-      <h1 className="text-4xl font-bold text-blue-700">Hello VHS World</h1>
-      <Button variant="default">Click me</Button>
-      <Button variant="destructive">Delete</Button>
-      <Button variant="outline">Outline</Button>
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
+        <h1 className="text-4xl font-bold mb-8 text-center">Welcome to Tape Head</h1>
+        <div className="flex flex-col items-center space-y-4">
+          <Button href="/tapes" size="lg">
+            Browse Tapes
+          </Button>
+          <Button href="/publishers" variant="secondary" size="lg">
+            View Publishers
+          </Button>
+        </div>
+      </div>
     </main>
   );
 } 

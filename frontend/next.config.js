@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['static.wikia.nocookie.net', 'vhscollector.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'static.wikia.nocookie.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'vhscollector.com',
+      }
+    ],
+    unoptimized: true, // This allows us to use local SVG files without optimization
   },
   async rewrites() {
     return [

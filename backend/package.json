@@ -9,6 +9,7 @@
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "ts-node prisma/seed.ts",
     "test:wantlist": "ts-node scripts/test-api-wantlist.ts",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import collectionRoutes from './routes/collection';
 import wantlistRoutes from './routes/wantlist';
 import publishersRoutes from './routes/publishers';
+import tapesRoutes from './routes/tapes';
 import { notFoundHandler, errorHandler } from './middleware/error';
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/collection', collectionRoutes);
 app.use('/api/wantlist', wantlistRoutes);
 app.use('/api/publishers', publishersRoutes);
+app.use('/api/tapes', tapesRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

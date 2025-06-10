@@ -10,37 +10,27 @@ interface PublisherInput {
 }
 
 // GET /publishers - List all publishers
-export const getAllPublishers = async (req: AuthRequest, res: Response): Promise<Response> => {
+export const getAllPublishers = async (_req: any, res: Response): Promise<Response> => {
   try {
     const publishers = await prisma.publisher.findMany({
-      orderBy: {
-        name: 'asc'
+      include: {
+        tapes: true
       }
     });
-
-    return res.status(200).json(publishers);
+    return res.json(publishers);
   } catch (error) {
     console.error('Error fetching publishers:', error);
-    if (error instanceof Error) {
-      console.error(error.stack);
-    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// GET /publishers/:id - Get publisher details by ID
-export const getPublisherById = async (req: AuthRequest & { params: { id: string } }, res: Response): Promise<Response> => {
+// GET /publishers/:slug - Get publisher details by slug
+export const getPublisher = async (req: { params: { slug: string } }, res: Response): Promise<Response> => {
   try {
-    const { id } = req.params;
-
     const publisher = await prisma.publisher.findUnique({
-      where: { id },
+      where: { slug: req.params.slug },
       include: {
-        tapes: {
-          orderBy: {
-            title: 'asc'
-          }
-        }
+        tapes: true
       }
     });
 
@@ -48,12 +38,9 @@ export const getPublisherById = async (req: AuthRequest & { params: { id: string
       return res.status(404).json({ error: 'Publisher not found' });
     }
 
-    return res.status(200).json(publisher);
+    return res.json(publisher);
   } catch (error) {
     console.error('Error fetching publisher:', error);
-    if (error instanceof Error) {
-      console.error(error.stack);
-    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

@@ -119,10 +119,136 @@ export class ApiError extends Error {
   }
 }
 
-interface TokenResponse {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
+// Collection and Wantlist Types
+export interface Publisher {
+  id: string;
+  name: string;
+  description?: string;
+  logoImage?: string;
+}
+
+export interface BoxSet {
+  id: string;
+  title: string;
+  year?: number;
+  coverImage?: string;
+  description?: string;
+}
+
+export interface Tape {
+  id: string;
+  title: string;
+  releaseYear: number;
+  genre: string;
+  label: string;
+  format: string;
+  notes?: string;
+  coverImage: string;
+  coverWidth?: number;
+  coverHeight?: number;
+  publisherId?: string;
+  publisher?: Publisher;
+  boxSetId?: string;
+  boxSet?: BoxSet;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WantlistItem {
+  id: string;
+  tape: Tape;
+  addedAt: string;
+}
+
+// API Functions
+export async function getUserCollection(signal?: AbortSignal): Promise<Tape[]> {
+  const response = await fetch(`${API_BASE_URL}/collection`, {
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch collection');
+  }
+  return response.json();
+}
+
+export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
+  const response = await fetch(`${API_BASE_URL}/wantlist`, {
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch wantlist');
+  }
+  return response.json();
+}
+
+export async function login(email: string, password: string): Promise<void> {
+  const response = await api.post('/auth/login', { email, password });
+  
+  // Store tokens in cookies
+  const { accessToken, refreshToken, expiresIn } = response.data;
+  const cookieOptions = [
+    `path=/`,
+    `max-age=${expiresIn}`,
+    'SameSite=Lax',
+    'Secure'
+  ].join('; ');
+
+  document.cookie = `token=${accessToken}; ${cookieOptions}`;
+  document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
+  document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+}
+
+// Get the offline context
+let offlineContext: {
+  isOffline: boolean;
+  queueRequest: <T>(endpoint: string, options: RequestInit) => Promise<T>;
+} | null = null;
+
+export function setOfflineContext(context: typeof offlineContext) {
+  offlineContext = context;
+}
+
+export async function fetchApi<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  try {
+    // Get a valid token
+    const token = await getValidToken();
+
+    // Prepare headers
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
+
+    // Make the request
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    // Handle response
+    if (!response.ok) {
+      const data = await response.json();
+      throw new ApiError(data.message || 'Request failed', response.status);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError('Network error', 0);
+  }
 }
 
 let isRefreshing = false;
@@ -206,176 +332,8 @@ async function getValidToken(): Promise<string> {
   return token;
 }
 
-// Get the offline context
-let offlineContext: {
-  isOffline: boolean;
-  queueRequest: <T>(endpoint: string, options: RequestInit) => Promise<T>;
-} | null = null;
-
-export function setOfflineContext(context: typeof offlineContext) {
-  offlineContext = context;
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 }
-
-export async function fetchApi<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  try {
-    // Get a valid token
-    const token = await getValidToken();
-
-    // Prepare headers
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers,
-    };
-
-    // Make the request
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    // Handle response
-    if (!response.ok) {
-      const data = await response.json();
-      throw new ApiError(data.message || 'Request failed', response.status);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError('Network error', 0);
-  }
-}
-
-// Collection and Wantlist Types
-export interface Tape {
-  id: string;
-  title: string;
-  releaseYear: number;
-  genre: string;
-  label: string;
-  format: string;
-  notes: string;
-  coverImage: string;
-  coverWidth?: number;
-  coverHeight?: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface WantlistItem {
-  id: string;
-  tape: Tape;
-  addedAt: string;
-}
-
-// Mock data for development
-export const mockTapes: Tape[] = [
-  {
-    id: "1",
-    title: "The Terminator",
-    releaseYear: 1984,
-    genre: "Action/Sci-Fi",
-    label: "Orion Pictures",
-    format: "VHS",
-    notes: "A cyborg assassin is sent back in time to kill Sarah Connor, whose unborn son will lead humanity in a war against the machines.",
-    coverImage: "https://static.wikia.nocookie.net/polygram-video/images/0/08/The_Terminator_VHS_Cover_1988.jpg/revision/latest/scale-to-width-down/400?cb=20221122124225",
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: "2",
-    title: "Back to the Future",
-    releaseYear: 1985,
-    genre: "Adventure/Sci-Fi",
-    label: "Universal Pictures",
-    format: "VHS",
-    notes: "Marty McFly, a 17-year-old high school student, is accidentally sent thirty years into the past in a time-traveling DeLorean invented by his close friend, the maverick scientist Doc Brown.",
-    coverImage: "https://vhscollector.com/sites/default/files/vhsimages/32147_BTTF%2520cover.jpg",
-    createdAt: new Date(),
-    updatedAt: new Date()
-  }
-];
-
-const mockWantlist: WantlistItem[] = [
-  {
-    id: "1",
-    tape: {
-      id: "1",
-      title: "Abbey Road",
-      releaseYear: 1969,
-      genre: "Rock",
-      label: "The Beatles",
-      format: "VHS",
-      notes: "",
-      coverImage: "https://example.com/abbey-road.jpg",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    addedAt: "2024-04-01T12:00:00"
-  },
-  {
-    id: "2",
-    tape: {
-      id: "2",
-      title: "Rumours",
-      releaseYear: 1977,
-      genre: "Pop",
-      label: "Fleetwood Mac",
-      format: "VHS",
-      notes: "",
-      coverImage: "https://example.com/rumours.jpg",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    addedAt: "2024-04-02T12:00:00"
-  }
-];
-
-// Collection and Wantlist API Functions
-export async function getUserCollection(signal?: AbortSignal): Promise<Tape[]> {
-  try {
-    const collection = await fetchApi<Tape[]>('/collection', { signal });
-    return collection;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return [];
-    }
-    throw error;
-  }
-}
-
-export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
-  try {
-    const wantlist = await fetchApi<WantlistItem[]>('/wantlist', { signal });
-    return wantlist;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return [];
-    }
-    throw error;
-  }
-}
-
-export async function login(email: string, password: string): Promise<void> {
-  const response = await api.post('/auth/login', { email, password });
-  
-  // Store tokens in cookies
-  const { accessToken, refreshToken, expiresIn } = response.data;
-  const cookieOptions = [
-    `path=/`,
-    `max-age=${expiresIn}`,
-    'SameSite=Lax',
-    'Secure'
-  ].join('; ');
-
-  document.cookie = `token=${accessToken}; ${cookieOptions}`;
-  document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
-  document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
-} 

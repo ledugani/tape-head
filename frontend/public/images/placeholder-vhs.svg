@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="352" viewBox="0 0 256 352" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="256" height="352" fill="#F3F4F6"/>
+  
+  <!-- VHS Tape Outline -->
+  <rect x="48" y="96" width="160" height="160" rx="8" stroke="#9CA3AF" stroke-width="4"/>
+  
+  <!-- VHS Label -->
+  <rect x="64" y="112" width="128" height="32" fill="#D1D5DB"/>
+  <text x="128" y="132" font-family="Arial" font-size="16" fill="#6B7280" text-anchor="middle">VHS</text>
+  
+  <!-- Reels -->
+  <circle cx="96" cy="176" r="16" stroke="#9CA3AF" stroke-width="4"/>
+  <circle cx="160" cy="176" r="16" stroke="#9CA3AF" stroke-width="4"/>
+</svg> 
