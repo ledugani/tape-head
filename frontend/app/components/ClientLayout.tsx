@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { OfflineBanner } from '@/components/OfflineBanner';
-import { SessionWarning } from '@/components/SessionWarning';
+import { OfflineBanner } from '@/src/components/OfflineBanner';
+import { SessionWarning } from '@/src/components/SessionWarning';
 import { useAuth } from '@/lib/AuthContext';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -12,13 +12,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     <>
       {children}
       <OfflineBanner />
-      {hasSessionConflict && (
-        <SessionWarning
-          message="You are logged in on another device. Would you like to log out other sessions?"
-          onConfirm={resolveSessionConflict}
-          onDismiss={dismissSessionConflict}
-        />
-      )}
+      {hasSessionConflict && <SessionWarning />}
     </>
   );
 } 
