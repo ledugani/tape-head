@@ -12,6 +12,7 @@ export default function BoxSetPage() {
   const [boxSet, setBoxSet] = useState<BoxSet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     const fetchBoxSet = async () => {
@@ -37,15 +38,17 @@ export default function BoxSetPage() {
   if (!boxSet) return <div>Box set not found</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/3">
-          <div className="relative w-full aspect-square mb-4">
+        <div className="w-full md:w-1/3">
+          <div className="relative w-full h-[400px] mb-4 rounded-lg overflow-hidden bg-gray-100">
             <Image
-              src={boxSet.coverImage || '/placeholder.png'}
-              alt={boxSet.title}
+              src={imageError ? '/images/placeholder-vhs.svg' : (boxSet.coverImage || '/images/placeholder-vhs.svg')}
+              alt={`${boxSet.title} cover`}
               fill
               className="object-contain"
+              priority
+              onError={() => setImageError(true)}
             />
           </div>
         </div>
@@ -65,7 +68,7 @@ export default function BoxSetPage() {
                 key={tape.id}
                 className="block hover:opacity-90 transition-opacity"
               >
-                <div className="relative aspect-[3/4] mb-2">
+                <div className="relative aspect-[3/4] mb-2 rounded-lg overflow-hidden">
                   <Image
                     src={tape.coverImage || '/placeholder.png'}
                     alt={tape.title}

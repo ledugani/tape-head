@@ -25,7 +25,7 @@ async function main() {
       title: 'Star Wars Original Trilogy',
       year: 1995,
       label: '20th Century Fox',
-      coverImage: 'https://example.com/star-wars-box.jpg',
+      coverImage: '/images/placeholder-vhs.svg',
       description: 'The complete Star Wars Original Trilogy on VHS, featuring A New Hope, The Empire Strikes Back, and Return of the Jedi.'
     }
   });

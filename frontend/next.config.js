@@ -9,6 +9,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'vhscollector.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'm.media-amazon.com',
       }
     ],
     unoptimized: true, // This allows us to use local SVG files without optimization
