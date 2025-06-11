@@ -12,6 +12,7 @@ export default function BoxSetPage() {
   const [boxSet, setBoxSet] = useState<BoxSet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     const fetchBoxSet = async () => {
@@ -42,10 +43,12 @@ export default function BoxSetPage() {
         <div className="md:w-1/3">
           <div className="relative w-full aspect-square mb-4">
             <Image
-              src={boxSet.coverImage || '/placeholder.png'}
+              src={imageError ? '/images/placeholder-vhs.svg' : (boxSet.coverImage || '/images/placeholder-vhs.svg')}
               alt={boxSet.title}
               fill
               className="object-contain"
+              priority
+              onError={() => setImageError(true)}
             />
           </div>
         </div>
@@ -67,10 +70,15 @@ export default function BoxSetPage() {
               >
                 <div className="relative aspect-[3/4] mb-2">
                   <Image
-                    src={tape.coverImage || '/placeholder.png'}
+                    src={tape.coverImage || '/images/placeholder-vhs.svg'}
                     alt={tape.title}
                     fill
                     className="object-cover"
+                    priority
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/images/placeholder-vhs.svg';
+                    }}
                   />
                 </div>
                 <h3 className="font-medium">{tape.title}</h3>

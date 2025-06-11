@@ -38,7 +38,7 @@ export default function TapePage() {
         <div className="md:w-1/3">
           <div className="relative w-full aspect-square mb-4">
             <Image
-              src={tape.coverImage || '/placeholder.png'}
+              src={tape.coverImage || '/images/placeholder-vhs.svg'}
               alt={tape.title}
               fill
               className="object-contain"
@@ -70,14 +70,11 @@ export default function TapePage() {
           {tape.publisher && (
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Publisher</h2>
-              <Link 
+              <Link
                 href={`/publishers/${tape.publisher.id}`}
-                className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800"
               >
-                <span>{tape.publisher.name}</span>
-                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                {tape.publisher.name}
               </Link>
             </div>
           )}

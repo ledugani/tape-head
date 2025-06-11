@@ -9,9 +9,8 @@ export interface User {
 export interface Publisher {
   id: string;
   name: string;
-  slug: string;
-  description?: string;
-  logoImage?: string;
+  description: string;
+  logoImage: string;
   tapes: Tape[];
   createdAt: string;
   updatedAt: string;
