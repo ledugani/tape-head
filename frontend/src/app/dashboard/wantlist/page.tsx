@@ -1,81 +1,88 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { WantlistItem } from '@/types/api';
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/AuthContext'
+import { getUserWantlist } from '@/lib/api'
+import type { WantlistItem } from '@/types/api'
 
 export default function WantlistPage() {
-  const [tapes, setTapes] = useState<WantlistItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const [items, setItems] = useState<WantlistItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchWantlist = async () => {
-      try {
-        setIsLoading(true);
-        const response = await api.get('/wantlist');
-        if (response.data.success) {
-          setTapes(response.data.data);
-          setError(null);
-        } else {
-          setError(response.data.message || 'Failed to load wantlist');
+    if (isAuthenticated) {
+      const fetchWantlist = async () => {
+        try {
+          const data = await getUserWantlist()
+          setItems(data)
+          setError(null)
+        } catch (err) {
+          setError('Failed to load wantlist')
+          console.error('Error fetching wantlist:', err)
+        } finally {
+          setLoading(false)
         }
-      } catch (err) {
-        setError('Failed to load wantlist');
-      } finally {
-        setIsLoading(false);
       }
-    };
 
-    fetchWantlist();
-  }, []);
+      fetchWantlist()
+    }
+  }, [isAuthenticated])
 
-  if (isLoading) {
+  if (authLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
+        <div className="relative py-3 sm:max-w-xl sm:mx-auto">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Please log in to view your wantlist</h2>
+          </div>
+        </div>
       </div>
-    );
+    )
+  }
+
+  if (loading) {
+    return <div>Loading wantlist...</div>
   }
 
   if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
-  }
-
-  if (tapes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-4">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Your wantlist is empty</h3>
-        <p className="text-gray-500">Start adding VHS tapes to your wantlist to see them here.</p>
-      </div>
-    );
+    return <div className="text-red-500">{error}</div>
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      {tapes.map((tape) => (
-        <div
-          key={tape.id}
-          className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200"
-        >
-          <div className="aspect-square relative">
-            <img
-              src={tape.tape.coverImage}
-              alt={tape.tape.title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="p-4">
-            <h3 className="font-medium text-gray-900 truncate">{tape.tape.title}</h3>
-            <p className="text-sm text-gray-500 truncate">{tape.tape.label}</p>
-            <p className="text-sm text-gray-500 mt-1">{tape.tape.year}</p>
-          </div>
+    <div className="min-h-screen bg-gray-100">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Your Wantlist</h1>
+          {items.length === 0 ? (
+            <p className="text-gray-500">Your wantlist is empty</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((item) => (
+                <div key={item.id} className="bg-white shadow rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-gray-900">{item.tape.title}</h3>
+                  <p className="text-sm text-gray-400">
+                    {item.tape.year} • {item.tape.label}
+                  </p>
+                  {item.notes && (
+                    <p className="mt-2 text-sm text-gray-600">{item.notes}</p>
+                  )}
+                  <div className="mt-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Priority: {item.priority}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      ))}
+      </div>
     </div>
-  );
+  )
 } 

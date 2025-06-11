@@ -9,6 +9,7 @@ export interface User {
 export interface Publisher {
   id: string;
   name: string;
+  slug: string;
   description: string;
   logoImage: string;
   tapes: Tape[];
@@ -37,7 +38,6 @@ export interface Tape {
   coverImage?: string;
   notes?: string;
   condition?: string;
-  price?: number;
   publisherId?: string;
   publisher?: Publisher;
   boxSetId?: number;

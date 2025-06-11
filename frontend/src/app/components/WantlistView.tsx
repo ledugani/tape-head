@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, WantlistItem } from '@/lib/api';
+import { api } from '@/lib/api';
+import { WantlistItem } from '@/types/api';
+import Image from 'next/image';
 
 export function WantlistView() {
   const [tapes, setTapes] = useState<WantlistItem[]>([]);
@@ -62,10 +64,15 @@ export function WantlistView() {
           className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200"
         >
           <div className="aspect-square relative">
-            <img
-              src={tape.tape.imageUrl}
+            <Image
+              src={tape.tape.coverImage || '/images/tape-placeholder.jpg'}
               alt={tape.tape.title}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/images/tape-placeholder.jpg';
+              }}
             />
           </div>
           <div className="p-4">

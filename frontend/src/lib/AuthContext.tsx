@@ -53,6 +53,21 @@ const DEFAULT_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in millisecond
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Add a helper for token debug logging
+function debugToken(action: string, token?: string, expiry?: number) {
+  console.debug(`[AuthContext] Token ${action}:`, {
+    token: token ? `${token.slice(0, 10)}...` : undefined,
+    expiry: expiry ? new Date(expiry).toISOString() : undefined,
+    isValid: token && expiry ? expiry > Date.now() : false
+  });
+}
+
+// Add fetchUserData function
+const fetchUserData = async (): Promise<User> => {
+  const response = await api.get('/auth/me');
+  return response.data;
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -61,29 +76,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   const [hasSessionConflict, setHasSessionConflict] = useState(false);
   const [activeSessions, setActiveSessions] = useState<SessionInfo[]>([]);
   const [sessionExpiry, setSessionExpiry] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Watch for auth state changes
+  useEffect(() => {
+    console.debug('[AuthContext] Auth state changed:', { isAuthenticated, user });
+  }, [isAuthenticated, user]);
+
+  const getCookie = useCallback((name: string) => {
+    if (typeof document === 'undefined') return null;
+    return document.cookie
+      .split('; ')
+      .find(row => row.startsWith(`${name}=`))
+      ?.split('=')[1];
+  }, []);
+
+  const setCookie = useCallback((name: string, value: string, options: string) => {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${name}=${value}; ${options}`;
+  }, []);
+
+  const clearCookie = useCallback((name: string) => {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  }, []);
+
   const refreshSessionInfo = useCallback(async () => {
+    if (!mounted) return;
     try {
       const response = await api.get('/auth/verify');
       setUser(response.data.user);
       setIsAuthenticated(true);
     } catch (error) {
-      // Clear auth state on verification failure
-      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      clearCookie('token');
+      clearCookie('refresh_token');
+      clearCookie('token_expiry');
       setIsAuthenticated(false);
       setUser(null);
     }
-  }, []);
+  }, [mounted, clearCookie]);
 
   const refreshToken = useCallback(async () => {
+    if (!mounted) return;
     try {
       const response = await api.post('/auth/refresh');
       const { accessToken, refreshToken, expiresIn } = response.data;
 
-      // Store tokens in cookies
       const cookieOptions = [
         `path=/`,
         `max-age=${expiresIn}`,
@@ -91,31 +134,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         'Secure'
       ].join('; ');
 
-      document.cookie = `token=${accessToken}; ${cookieOptions}`;
-      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
-      document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
+      setCookie('token', accessToken, cookieOptions);
+      setCookie('refresh_token', refreshToken, cookieOptions);
+      setCookie('token_expiry', String(Date.now() + expiresIn * 1000), cookieOptions);
 
       return accessToken;
     } catch (error) {
-      // Clear auth state on refresh failure
-      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      clearCookie('token');
+      clearCookie('refresh_token');
+      clearCookie('token_expiry');
       setIsAuthenticated(false);
       setUser(null);
       throw error;
     }
-  }, []);
+  }, [mounted, setCookie, clearCookie]);
 
   const initializeAuth = useCallback(async () => {
-    const token = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('token='))
-      ?.split('=')[1];
-    const tokenExpiry = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('token_expiry='))
-      ?.split('=')[1];
+    if (!mounted) return;
+    const token = getCookie('token');
+    const tokenExpiry = getCookie('token_expiry');
 
     if (token && tokenExpiry) {
       const expiryTime = parseInt(tokenExpiry);
@@ -126,10 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         try {
           await refreshToken();
         } catch (error) {
-          // Clear auth state on refresh failure
-          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          clearCookie('token');
+          clearCookie('refresh_token');
+          clearCookie('token_expiry');
           setIsAuthenticated(false);
           setUser(null);
           setIsLoading(false);
@@ -142,10 +178,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         setUser(response.data.user);
         setIsAuthenticated(true);
       } catch (error) {
-        // Clear auth state on verification failure
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        clearCookie('token');
+        clearCookie('refresh_token');
+        clearCookie('token_expiry');
         setIsAuthenticated(false);
         setUser(null);
       }
@@ -154,20 +189,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       setUser(null);
     }
     setIsLoading(false);
-  }, [refreshToken]);
+  }, [mounted, getCookie, refreshToken, clearCookie]);
 
   useEffect(() => {
-    initializeAuth();
+    if (mounted) {
+      initializeAuth();
+    }
+  }, [mounted, initializeAuth]);
 
-    // Set up token refresh interval
+  useEffect(() => {
+    if (!mounted) return;
+
     const interval = setInterval(() => {
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split('=');
-        acc[key] = value;
-        return acc;
-      }, {} as Record<string, string>);
-
-      const tokenExpiry = cookies['token_expiry'];
+      const tokenExpiry = getCookie('token_expiry');
       if (tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry);
         const now = Date.now();
@@ -176,57 +210,129 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
           refreshToken();
         }
       }
-    }, 60000); // Check every minute
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, [initializeAuth, refreshToken]);
+  }, [mounted, getCookie, refreshToken]);
 
-  // Refresh session info periodically
   useEffect(() => {
-    if (sessionId) {
-      const interval = setInterval(refreshSessionInfo, 30000); // Every 30 seconds
-      return () => clearInterval(interval);
+    if (!mounted || !sessionId) return;
+
+    const interval = setInterval(refreshSessionInfo, 30000);
+    return () => clearInterval(interval);
+  }, [mounted, sessionId, refreshSessionInfo]);
+
+  // Token management helpers
+  const getToken = useCallback(() => {
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    const token = cookies['token'];
+    const expiry = cookies['token_expiry'] ? parseInt(cookies['token_expiry'], 10) : undefined;
+    
+    debugToken('checked', token, expiry);
+    
+    if (!token || !expiry || expiry <= Date.now()) {
+      debugToken('invalid', token, expiry);
+      return null;
     }
-  }, [sessionId, refreshSessionInfo]);
+    
+    return token;
+  }, []);
+
+  const setToken = useCallback((token: string, expiresIn: number) => {
+    const expiry = Date.now() + expiresIn * 1000;
+    debugToken('set', token, expiry);
+    
+    document.cookie = `token=${token}; path=/; max-age=${expiresIn}; SameSite=Lax; Secure`;
+    document.cookie = `token_expiry=${expiry}; path=/; max-age=${expiresIn}; SameSite=Lax; Secure`;
+  }, []);
+
+  const removeToken = useCallback(() => {
+    debugToken('removed');
+    document.cookie = 'token=; path=/; max-age=0; SameSite=Lax; Secure';
+    document.cookie = 'token_expiry=; path=/; max-age=0; SameSite=Lax; Secure';
+  }, []);
+
+  // Check auth state on mount and cookie changes
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getToken();
+      if (!token) {
+        console.debug('[AuthContext] No valid token found, clearing auth state');
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userData = await fetchUserData();
+        console.debug('[AuthContext] Valid token, user data fetched:', userData);
+        setIsAuthenticated(true);
+        setUser(userData);
+      } catch (error) {
+        console.debug('[AuthContext] Token validation failed:', error);
+        removeToken();
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [getToken, removeToken]);
+
+  // Watch for auth state changes
+  useEffect(() => {
+    console.debug('[AuthContext] Auth state changed:', {
+      isAuthenticated,
+      user: user ? { id: user.id, email: user.email } : null,
+      isLoading
+    });
+  }, [isAuthenticated, user, isLoading]);
 
   const login = async (email: string, password: string, rememberMe: boolean): Promise<User> => {
-	try {
-	  const response = await api.post('/auth/login', { email, password });
-	  const { accessToken, refreshToken, expiresIn, user } = response.data;
-  
-	  // Store tokens in cookies
-	  const cookieOptions = [
-		`path=/`,
-		`max-age=${expiresIn}`,
-		'SameSite=Lax',
-		'Secure'
-	  ].join('; ');
-  
-	  document.cookie = `token=${accessToken}; ${cookieOptions}`;
-	  document.cookie = `refresh_token=${refreshToken}; ${cookieOptions}`;
-	  document.cookie = `token_expiry=${Date.now() + expiresIn * 1000}; ${cookieOptions}`;
-  
-	  setUser(user);
-	  setIsAuthenticated(true);
-	  return user;
-	} catch (error) {
-	  setIsAuthenticated(false);
-	  setUser(null);
-	  throw error;
-	}
+    console.debug('[AuthContext] Login attempt:', { email, rememberMe });
+    if (!mounted) throw new Error('Not mounted');
+    
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { accessToken, refreshToken, expiresIn, user: userData } = response.data;
+      
+      setToken(accessToken, expiresIn);
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      console.debug('[AuthContext] Login successful:', {
+        user: { id: userData.id, email: userData.email },
+        expiresIn
+      });
+      
+      return userData;
+    } catch (error) {
+      console.debug('[AuthContext] Login failed:', error);
+      throw error;
+    }
   };
-  
 
   const logout = async () => {
+    console.debug('[AuthContext] Logout attempt');
+    if (!mounted) return;
+    
     try {
       await api.post('/auth/logout');
+    } catch (error) {
+      console.debug('[AuthContext] Logout API call failed:', error);
     } finally {
-      // Clear cookies regardless of server response
-      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'token_expiry=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      removeToken();
       setIsAuthenticated(false);
       setUser(null);
+      console.debug('[AuthContext] Logout completed');
     }
   };
 

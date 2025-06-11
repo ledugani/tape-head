@@ -8,7 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export default function PublisherPage() {
-  const { id } = useParams();
+  const { id: slug } = useParams();
   const [publisher, setPublisher] = useState<Publisher | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,17 +16,18 @@ export default function PublisherPage() {
   useEffect(() => {
     const fetchPublisher = async () => {
       try {
-        const data = await getPublisher(id as string);
+        const data = await getPublisher(slug as string);
         setPublisher(data);
       } catch (err) {
         setError('Failed to load publisher');
+        console.error('Error fetching publisher:', err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchPublisher();
-  }, [id]);
+  }, [slug]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
@@ -38,10 +39,14 @@ export default function PublisherPage() {
         <div className="md:w-1/3">
           <div className="relative w-full aspect-square mb-4">
             <Image
-              src={publisher.logoImage}
+              src={publisher.logoImage || '/images/placeholder-vhs.svg'}
               alt={publisher.name}
               fill
               className="object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/images/placeholder-vhs.svg';
+              }}
             />
           </div>
         </div>
@@ -59,14 +64,17 @@ export default function PublisherPage() {
               >
                 <div className="relative aspect-[3/4] mb-2">
                   <Image
-                    src={tape.coverImage}
+                    src={tape.coverImage || '/images/placeholder-vhs.svg'}
                     alt={tape.title}
                     fill
                     className="object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/images/placeholder-vhs.svg';
+                    }}
                   />
                 </div>
                 <h3 className="font-medium">{tape.title}</h3>
-                <p className="text-gray-600">${tape.price}</p>
               </Link>
             ))}
           </div>
