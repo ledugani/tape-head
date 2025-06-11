@@ -68,19 +68,53 @@ api.interceptors.response.use(
 );
 
 export async function getUserCollection(signal?: AbortSignal): Promise<CollectionItem[]> {
-  const response = await api.get('/collection', { signal });
-  if (response.data.success) {
-    return response.data.data;
+  console.debug('[API] Fetching user collection...');
+  try {
+    const response = await api.get('/collection', { signal });
+    console.debug('[API] Collection response:', {
+      status: response.status,
+      data: response.data,
+      headers: response.headers
+    });
+    
+    if (response.data.success) {
+      return response.data.data;
+    }
+    throw new ApiError('Failed to fetch collection', response.status);
+  } catch (error) {
+    console.error('[API] Collection fetch error:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      status: error instanceof ApiError ? error.status : 'Unknown',
+      response: error.response?.data
+    });
+    throw error;
   }
-  throw new ApiError('Failed to fetch collection', response.status);
 }
 
 export async function getUserWantlist(signal?: AbortSignal): Promise<WantlistItem[]> {
-  const response = await api.get('/wantlist', { signal });
-  if (response.data.success) {
-    return response.data.data;
+  console.debug('[API] Fetching user wantlist...');
+  try {
+    const response = await api.get('/wantlist', { signal });
+    console.debug('[API] Wantlist response:', {
+      status: response.status,
+      data: response.data,
+      headers: response.headers
+    });
+    
+    if (response.data.success) {
+      return response.data.data;
+    }
+    throw new ApiError('Failed to fetch wantlist', response.status);
+  } catch (error) {
+    console.error('[API] Wantlist fetch error:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      status: error instanceof ApiError ? error.status : 'Unknown',
+      response: error.response?.data
+    });
+    throw error;
   }
-  throw new ApiError('Failed to fetch wantlist', response.status);
 }
 
 export { api };
