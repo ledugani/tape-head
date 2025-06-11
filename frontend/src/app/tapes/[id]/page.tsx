@@ -71,7 +71,7 @@ export default function TapePage() {
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Publisher</h2>
               <Link
-                href={`/publishers/${tape.publisher.id}`}
+                href={`/publishers/${tape.publisher.slug}`}
                 className="text-blue-600 hover:text-blue-800"
               >
                 {tape.publisher.name}
