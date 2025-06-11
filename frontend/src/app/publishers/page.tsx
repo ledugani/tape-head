@@ -36,15 +36,19 @@ export default function PublishersPage() {
         {publishers.map((publisher) => (
           <Link
             key={publisher.id}
-            href={`/publishers/${publisher.id}`}
+            href={`/publishers/${publisher.slug}`}
             className="block hover:opacity-90 transition-opacity"
           >
             <div className="relative aspect-[3/4] mb-2">
               <Image
-                src={publisher.logoImage}
+                src={publisher.logoImage || '/images/placeholder-vhs.svg'}
                 alt={publisher.name}
                 fill
                 className="object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/images/placeholder-vhs.svg';
+                }}
               />
             </div>
             <h2 className="font-medium">{publisher.name}</h2>

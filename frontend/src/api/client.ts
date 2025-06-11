@@ -21,9 +21,11 @@ export const getTape = async (id: string): Promise<Tape> => {
   return data;
 };
 
-export const getPublisher = async (id: string): Promise<Publisher> => {
-  const response = await fetch(`${API_URL}/publishers/${id}`);
-  if (!response.ok) throw new Error('Failed to fetch publisher');
+export const getPublisher = async (slug: string): Promise<Publisher> => {
+  const response = await fetch(`${API_URL}/publishers/${slug}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch publisher');
+  }
   return response.json();
 };
 
