@@ -83,21 +83,34 @@ export const addToCollection = async (req: AuthRequest & { body: CollectionInput
 };
 
 export const getUserCollection = async (req: AuthRequest, res: Response): Promise<Response> => {
+  console.debug('[Collection] Received collection request:', {
+    userId: req.user?.id,
+    headers: req.headers,
+    cookies: req.cookies
+  });
+
   try {
     // Validate user authentication
     if (!req.user) {
-      console.error('Authentication error: User object missing');
-      return res.status(401).json({ error: 'Unauthorized - Authentication required' });
+      console.error('[Collection] Authentication error: User object missing');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized - Authentication required' 
+      });
     }
 
     // Extract userId from req.user.id
     const userId = req.user.id;
     if (!userId) {
-      console.error('Authentication error: User ID missing');
-      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+      console.error('[Collection] Authentication error: User ID missing');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized - User ID not found' 
+      });
     }
     
     try {
+      console.debug('[Collection] Fetching collection for user:', userId);
       const userCollection = await prisma.userCollection.findMany({
         where: {
           userId
@@ -107,18 +120,27 @@ export const getUserCollection = async (req: AuthRequest, res: Response): Promis
         }
       });
       
-      // Return the collection (empty array if no entries found)
-      return res.status(200).json(userCollection);
+      console.debug('[Collection] Found items:', userCollection.length);
+      // Return the collection with success flag
+      return res.status(200).json({
+        success: true,
+        data: userCollection
+      });
     } catch (dbError) {
-      console.error('Database error when fetching collection:', dbError);
-      return res.status(500).json({ error: 'Internal server error - Database operation failed' });
+      console.error('[Collection] Database error:', dbError);
+      return res.status(500).json({ 
+        success: false,
+        error: 'Internal server error - Database operation failed' 
+      });
     }
   } catch (error) {
-    // Log the unexpected error with stack trace if available
-    console.error('Unexpected error in getUserCollection:', error);
+    console.error('[Collection] Unexpected error:', error);
     if (error instanceof Error) {
       console.error(error.stack);
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
   }
 }; 
