@@ -5,9 +5,11 @@ import { useAuth } from '@/lib/AuthContext';
 import { CollectionView } from '@/app/components/CollectionView';
 import { WantlistView } from '@/app/components/WantlistView';
 import * as Tabs from '@radix-ui/react-tabs';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
 	const { isAuthenticated, isLoading } = useAuth();
+	const router = useRouter();
 
 	if (isLoading) {
 		return (
@@ -20,18 +22,8 @@ export default function DashboardPage() {
 	}
 
 	if (!isAuthenticated) {
-		return (
-			<div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-				<div className="relative py-3 sm:max-w-xl sm:mx-auto">
-					<div className="text-center">
-						<h2 className="text-2xl font-bold mb-4">Please log in to access the dashboard</h2>
-						<a href="/login" className="text-blue-600 hover:text-blue-800">
-							Go to Login
-						</a>
-					</div>
-				</div>
-			</div>
-		);
+		router.replace('/login');
+		return null;
 	}
 
 	return (
