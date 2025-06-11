@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
@@ -10,51 +10,39 @@ interface PublisherInput {
 }
 
 // GET /publishers - List all publishers
-export const getAllPublishers = async (req: AuthRequest, res: Response): Promise<Response> => {
+export const getAllPublishers = async (_req: Request, res: Response) => {
   try {
     const publishers = await prisma.publisher.findMany({
-      orderBy: {
-        name: 'asc'
+      include: {
+        tapes: true
       }
     });
-
-    return res.status(200).json(publishers);
+    res.json(publishers);
   } catch (error) {
     console.error('Error fetching publishers:', error);
-    if (error instanceof Error) {
-      console.error(error.stack);
-    }
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// GET /publishers/:id - Get publisher details by ID
-export const getPublisherById = async (req: AuthRequest & { params: { id: string } }, res: Response): Promise<Response> => {
+// GET /publishers/:slug - Get publisher details by slug
+export const getPublisher = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-
     const publisher = await prisma.publisher.findUnique({
-      where: { id },
+      where: { slug: req.params.slug },
       include: {
-        tapes: {
-          orderBy: {
-            title: 'asc'
-          }
-        }
+        tapes: true
       }
     });
 
     if (!publisher) {
-      return res.status(404).json({ error: 'Publisher not found' });
+      res.status(404).json({ error: 'Publisher not found' });
+      return;
     }
 
-    return res.status(200).json(publisher);
+    res.json(publisher);
   } catch (error) {
     console.error('Error fetching publisher:', error);
-    if (error instanceof Error) {
-      console.error(error.stack);
-    }
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -68,6 +56,7 @@ export const createPublisher = async (req: AuthRequest & { body: PublisherInput 
     }
 
     const { name, description, logoImage } = req.body;
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     // Validate required fields
     if (!name) {
@@ -87,6 +76,7 @@ export const createPublisher = async (req: AuthRequest & { body: PublisherInput 
     const publisher = await prisma.publisher.create({
       data: {
         name,
+        slug,
         description,
         logoImage
       }

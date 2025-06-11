@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { getUserCollection } from '@/lib/api';
-import type { VHSTape } from '@/types/record';
+import { CollectionItem } from '@/types/api';
 
 export function CollectionView() {
-  const [tapes, setTapes] = useState<VHSTape[]>([]);
+  const [tapes, setTapes] = useState<CollectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,10 +13,17 @@ export function CollectionView() {
     const fetchCollection = async () => {
       try {
         setIsLoading(true);
-        const data = await getUserCollection();
-        setTapes(data);
-        setError(null);
+        const response = await getUserCollection();
+        // Ensure response is an array before setting state
+        if (Array.isArray(response)) {
+          setTapes(response);
+          setError(null);
+        } else {
+          console.error('Invalid response format:', response);
+          setError('Invalid response format from server');
+        }
       } catch (err) {
+        console.error('Error fetching collection:', err);
         setError('Failed to load collection');
       } finally {
         setIsLoading(false);
@@ -28,7 +35,7 @@ export function CollectionView() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px]" role="status">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
     );
@@ -42,7 +49,7 @@ export function CollectionView() {
     );
   }
 
-  if (tapes.length === 0) {
+  if (!Array.isArray(tapes) || tapes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-4">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Your collection is empty</h3>
@@ -60,15 +67,15 @@ export function CollectionView() {
         >
           <div className="aspect-square relative">
             <img
-              src={tape.coverImage}
-              alt={tape.title}
+              src={tape.tape.coverImage}
+              alt={tape.tape.title}
               className="w-full h-full object-cover"
             />
           </div>
           <div className="p-4">
-            <h3 className="font-medium text-gray-900 truncate">{tape.title}</h3>
-            <p className="text-sm text-gray-500 truncate">{tape.director}</p>
-            <p className="text-sm text-gray-500 mt-1">{tape.year}</p>
+            <h3 className="font-medium text-gray-900 truncate">{tape.tape.title}</h3>
+            <p className="text-sm text-gray-500 truncate">{tape.tape.label}</p>
+            <p className="text-sm text-gray-500 mt-1">{tape.tape.year}</p>
           </div>
         </div>
       ))}

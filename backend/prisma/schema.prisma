@@ -22,6 +22,7 @@ model User {
 model Publisher {
   id          String   @id @default(uuid())
   name        String   @unique
+  slug        String   @unique
   description String?
   logoImage   String?
   createdAt   DateTime @default(now())

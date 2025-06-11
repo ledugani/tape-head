@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from './api';
+import { api } from '@/lib/api';
 
 interface User {
   id: number;
@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         return acc;
       }, {} as Record<string, string>);
 
-      const tokenExpiry = cookies['token-expiry'];
+      const tokenExpiry = cookies['token_expiry'];
       if (tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry);
         const now = Date.now();

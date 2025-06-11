@@ -17,61 +17,84 @@ async function main() {
   });
   console.log('Test user created/updated:', testUser.email);
 
-  // Create test tape if not exists
-  const testTape = await prisma.tape.upsert({
-    where: { 
-      title_year: {
-        title: 'The Terminator',
-        year: 1984
-      }
-    },
+  // Create test box set
+  const testBoxSet = await prisma.boxSet.upsert({
+    where: { id: 1 },
     update: {},
     create: {
-      title: 'The Terminator',
-      year: 1984,
-      genre: 'Action',
-      format: 'Clamshell',
-      label: 'Orion Pictures',
-      coverImage: 'https://example.com/terminator.jpg'
+      title: 'Star Wars Original Trilogy',
+      year: 1995,
+      label: '20th Century Fox',
+      coverImage: '/images/placeholder-vhs.svg',
+      description: 'The complete Star Wars Original Trilogy on VHS, featuring A New Hope, The Empire Strikes Back, and Return of the Jedi.'
     }
   });
-  console.log('Test tape created/updated:', testTape.title);
+  console.log('Test box set created/updated:', testBoxSet.title);
 
-  // Create collection record
-  const collection = await prisma.userCollection.upsert({
-    where: {
-      userId_tapeId: {
-        userId: testUser.id,
-        tapeId: testTape.id
-      }
+  // Create test tapes in the box set
+  const tapes = [
+    {
+      title: 'Star Wars: A New Hope',
+      year: 1977,
+      genre: 'Science Fiction',
+      format: 'VHS',
+      label: '20th Century Fox',
+      coverImage: 'https://example.com/new-hope.jpg',
+      boxSetId: testBoxSet.id
     },
-    update: {},
-    create: {
-      userId: testUser.id,
-      tapeId: testTape.id,
-      condition: 'Good',
-      notes: 'Test collection item'
+    {
+      title: 'Star Wars: The Empire Strikes Back',
+      year: 1980,
+      genre: 'Science Fiction',
+      format: 'VHS',
+      label: '20th Century Fox',
+      coverImage: 'https://example.com/empire.jpg',
+      boxSetId: testBoxSet.id
+    },
+    {
+      title: 'Star Wars: Return of the Jedi',
+      year: 1983,
+      genre: 'Science Fiction',
+      format: 'VHS',
+      label: '20th Century Fox',
+      coverImage: 'https://example.com/jedi.jpg',
+      boxSetId: testBoxSet.id
     }
-  });
-  console.log('Collection record created/updated');
+  ];
 
-  // Create wantlist record
-  const wantlist = await prisma.userWantlist.upsert({
-    where: {
-      userId_tapeId: {
-        userId: testUser.id,
-        tapeId: testTape.id
-      }
-    },
-    update: {},
-    create: {
-      userId: testUser.id,
-      tapeId: testTape.id,
-      priority: 1,
-      notes: 'Test wantlist item'
+  for (const tapeData of tapes) {
+    const tape = await prisma.tape.upsert({
+      where: { 
+        title_year: {
+          title: tapeData.title,
+          year: tapeData.year
+        }
+      },
+      update: { boxSetId: tapeData.boxSetId },
+      create: tapeData
+    });
+    console.log('Test tape created/updated:', tape.title);
+
+    // Add first tape to user's collection
+    if (tape.title === 'Star Wars: A New Hope') {
+      const collection = await prisma.userCollection.upsert({
+        where: {
+          userId_tapeId: {
+            userId: testUser.id,
+            tapeId: tape.id
+          }
+        },
+        update: {},
+        create: {
+          userId: testUser.id,
+          tapeId: tape.id,
+          condition: 'Good',
+          notes: 'Original box set release'
+        }
+      });
+      console.log('Collection record created/updated for:', tape.title);
     }
-  });
-  console.log('Wantlist record created/updated');
+  }
 }
 
 main()

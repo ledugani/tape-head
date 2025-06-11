@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getUserWantlist } from '@/lib/api';
-import type { VHSTape } from '@/types/record';
+import { api, WantlistItem } from '@/lib/api';
 
 export function WantlistView() {
-  const [tapes, setTapes] = useState<VHSTape[]>([]);
+  const [tapes, setTapes] = useState<WantlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,9 +12,13 @@ export function WantlistView() {
     const fetchWantlist = async () => {
       try {
         setIsLoading(true);
-        const data = await getUserWantlist();
-        setTapes(data);
-        setError(null);
+        const response = await api.get('/wantlist');
+        if (response.data.success) {
+          setTapes(response.data.data);
+          setError(null);
+        } else {
+          setError(response.data.message || 'Failed to load wantlist');
+        }
       } catch (err) {
         setError('Failed to load wantlist');
       } finally {
@@ -28,7 +31,7 @@ export function WantlistView() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px]" role="status">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
     );
@@ -60,15 +63,15 @@ export function WantlistView() {
         >
           <div className="aspect-square relative">
             <img
-              src={tape.coverImage}
-              alt={tape.title}
+              src={tape.tape.imageUrl}
+              alt={tape.tape.title}
               className="w-full h-full object-cover"
             />
           </div>
           <div className="p-4">
-            <h3 className="font-medium text-gray-900 truncate">{tape.title}</h3>
-            <p className="text-sm text-gray-500 truncate">{tape.director}</p>
-            <p className="text-sm text-gray-500 mt-1">{tape.year}</p>
+            <h3 className="font-medium text-gray-900 truncate">{tape.tape.title}</h3>
+            <p className="text-sm text-gray-500 truncate">{tape.tape.label}</p>
+            <p className="text-sm text-gray-500 mt-1">{tape.tape.year}</p>
           </div>
         </div>
       ))}
