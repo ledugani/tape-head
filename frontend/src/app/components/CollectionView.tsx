@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { getUserCollection } from '@/lib/api';
 import { CollectionItem } from '@/types/api';
+import Link from 'next/link';
 
 export function CollectionView() {
   const [tapes, setTapes] = useState<CollectionItem[]>([]);
@@ -61,23 +62,26 @@ export function CollectionView() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {tapes.map((tape) => (
-        <div
+        <Link
           key={tape.id}
-          className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200"
+          href={`/tapes/${tape.tape.id}`}
+          className="block hover:opacity-90 transition-opacity"
         >
-          <div className="aspect-square relative">
-            <img
-              src={tape.tape.coverImage}
-              alt={tape.tape.title}
-              className="w-full h-full object-cover"
-            />
+          <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
+            <div className="aspect-square relative">
+              <img
+                src={tape.tape.coverImage}
+                alt={tape.tape.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="p-4">
+              <h3 className="font-medium text-gray-900 truncate">{tape.tape.title}</h3>
+              <p className="text-sm text-gray-500 truncate">{tape.tape.label}</p>
+              <p className="text-sm text-gray-500 mt-1">{tape.tape.year}</p>
+            </div>
           </div>
-          <div className="p-4">
-            <h3 className="font-medium text-gray-900 truncate">{tape.tape.title}</h3>
-            <p className="text-sm text-gray-500 truncate">{tape.tape.label}</p>
-            <p className="text-sm text-gray-500 mt-1">{tape.tape.year}</p>
-          </div>
-        </div>
+        </Link>
       ))}
     </div>
   );

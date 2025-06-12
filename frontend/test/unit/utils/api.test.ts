@@ -42,11 +42,11 @@ vi.mock('@/lib/api', () => {
   const getUserCollection = async (signal?: AbortSignal) => {
     console.debug('MOCK getUserCollection called');
     try {
-      const response = await apiMock.get('/users/collection', { signal });
+      const response = await apiMock.get('/collection', { signal });
       if (!response.data.success) {
         throw new Error('Failed to fetch collection');
       }
-      return response.data.data.items;
+      return response.data.data;
     } catch (error) {
       if (error instanceof Error && 'response' in error) {
         const axiosError = error as AxiosError;
@@ -83,11 +83,11 @@ vi.mock('@/lib/api', () => {
           }
           // After successful refresh, retry the original request (let errors propagate)
           console.debug('MOCK calling retry (api.get)...');
-          const retryResponse = await apiMock.get('/users/collection', { signal });
+          const retryResponse = await apiMock.get('/collection', { signal });
           if (!retryResponse.data.success) {
             throw new Error('Failed to fetch collection');
           }
-          return retryResponse.data.data.items;
+          return retryResponse.data.data;
         }
       }
       throw error;
@@ -259,18 +259,16 @@ describe('API Functions', () => {
       const mockResponse = {
         data: {
           success: true,
-          data: {
-            items: [
-              { id: 1, title: 'Test Item' }
-            ]
-          }
+          data: [
+            { id: 1, title: 'Test Item' }
+          ]
         },
         status: 200
       };
       vi.spyOn(api, 'get').mockResolvedValueOnce(mockResponse);
 
       const result = await getUserCollection();
-      expect(result).toEqual(mockResponse.data.data.items);
+      expect(result).toEqual(mockResponse.data.data);
     });
 
     it('handles collection fetch error', async () => {
@@ -322,9 +320,9 @@ describe('API Functions', () => {
         const retryResponse = {
           data: {
             success: true,
-            data: {
-              items: [{ id: 1, title: 'Test Item' }]
-            }
+            data: [
+              { id: 1, title: 'Test Item' }
+            ]
           },
           status: 200
         };
@@ -338,7 +336,7 @@ describe('API Functions', () => {
         apiSpy.mockResolvedValueOnce(retryResponse);
 
         const result = await getUserCollection();
-        expect(result).toEqual(retryResponse.data.data.items);
+        expect(result).toEqual(retryResponse.data.data);
         expect(Cookies.set).toHaveBeenCalledWith('token', 'new-token', expect.any(Object));
       });
 

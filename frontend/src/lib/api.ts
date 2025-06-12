@@ -123,7 +123,7 @@ api.interceptors.response.use(
 export async function getUserCollection(signal?: AbortSignal): Promise<CollectionItem[]> {
   console.debug('[API] Fetching user collection...');
   try {
-    const response = await api.get('/users/collection', { signal });
+    const response = await api.get('/collection', { signal });
     console.debug('[API] Collection response:', {
       status: response.status,
       data: response.data,
@@ -131,16 +131,11 @@ export async function getUserCollection(signal?: AbortSignal): Promise<Collectio
     });
     
     if (response.data.success) {
-      return response.data.data.items;
+      return response.data.data;
     }
     throw new ApiError('Failed to fetch collection', response.status);
   } catch (error) {
-    console.error('[API] Collection fetch error:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      status: error instanceof ApiError ? error.status : 'Unknown',
-      response: error.response?.data
-    });
+    console.error('[API] Error fetching collection:', error);
     throw error;
   }
 }
