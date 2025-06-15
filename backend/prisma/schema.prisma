@@ -8,24 +8,24 @@ datasource db {
 }
 
 model User {
-  id           Int              @id @default(autoincrement())
-  username     String           @unique
-  email        String           @unique
-  passwordHash String
+  id            Int              @id @default(autoincrement())
+  username      String           @unique
+  email         String           @unique
+  passwordHash  String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   emailVerified Boolean          @default(true)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  collections  UserCollection[]
-  wantlist     UserWantlist[]
+  collections   UserCollection[]
+  wantlist      UserWantlist[]
 }
 
 model Publisher {
   id          String   @id @default(uuid())
   name        String   @unique
-  slug        String   @unique
   description String?
   logoImage   String?
   createdAt   DateTime @default(now())
+  slug        String   @unique
   tapes       Tape[]
 }
 
@@ -40,54 +40,38 @@ model BoxSet {
   tapes       Tape[]   @relation("BoxSetTapes")
 }
 
-enum VideoStandard {
-  NTSC
-  PAL
-  SECAM
-  Other
-}
-
-enum PackagingType {
-  slipcase
-  clamshell
-  big_box
-  other
-}
-
 model Tape {
-  id               Int              @id @default(autoincrement())
-  title            String
-  year             Int?
-  genre            String?
-  format           String?
-  label            String?
-  coverImage       String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  boxSetId         Int?
-  publisherId      String?
-  boxSet           BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
-  publisher        Publisher?       @relation(fields: [publisherId], references: [id])
-  collections      UserCollection[]
-  wantlist         UserWantlist[]
-
-  // New fields for comprehensive VHS cataloging
-  edition          String?
-  releaseYear      Int
-  vhsReleaseYear   Int
-  runningTime      Int
-  videoStandard    VideoStandard
-  audioType        String
-  packagingType    PackagingType
-  distributor      String
-  productionCompany String
-  catalogNumber    String
-  upcBarcode       String
-  rating           String
-  languages        String[]
-  subtitles        String[]
-  specialFeatures  String?
+  id                Int              @id @default(autoincrement())
+  title             String
+  year              Int?
+  genre             String?
+  format            String?
+  label             String?
+  coverImage        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  boxSetId          Int?
+  publisherId       String?
+  audioType         String?
+  catalogNumber     String?
+  distributor       String?
+  edition           String?
+  languages         String[]
+  packagingType     PackagingType?
   physicalCondition String?
+  productionCompany String?
+  rating            String?
+  releaseYear       Int?
+  runningTime       Int?
+  specialFeatures   String?
+  subtitles         String[]
+  upcBarcode        String?
+  vhsReleaseYear    Int?
+  videoStandard     VideoStandard?
+  boxSet            BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
+  publisher         Publisher?       @relation(fields: [publisherId], references: [id])
+  collections       UserCollection[]
+  wantlist          UserWantlist[]
 
   @@unique([title, year])
 }
@@ -116,4 +100,18 @@ model UserWantlist {
   user     User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, tapeId])
+}
+
+enum VideoStandard {
+  NTSC
+  PAL
+  SECAM
+  Other
+}
+
+enum PackagingType {
+  slipcase
+  clamshell
+  big_box
+  other
 }
