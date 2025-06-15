@@ -1,10 +1,25 @@
 import { Response } from 'express';
 import prisma from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /tapes - Get all tapes
 export const getAllTapes = async (req: any, res: Response): Promise<Response> => {
   try {
+    const { search } = req.query;
+
+    // Build the where clause for the query
+    const where = search
+      ? {
+          // Case-insensitive partial match on title
+          title: {
+            contains: search,
+            mode: Prisma.QueryMode.insensitive
+          }
+        }
+      : undefined;
+
     const tapes = await prisma.tape.findMany({
+      where,
       include: {
         publisher: true,
         boxSet: true
