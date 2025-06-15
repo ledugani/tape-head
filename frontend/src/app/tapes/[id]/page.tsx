@@ -143,6 +143,12 @@ export default function TapePage() {
                     <dd className="mt-1 text-sm text-gray-900">{tape.year}</dd>
                   </div>
                 )}
+                {tape.vhsReleaseYear && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">VHS Release Year</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.vhsReleaseYear}</dd>
+                  </div>
+                )}
                 {tape.genre && (
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Genre</dt>
@@ -159,6 +165,90 @@ export default function TapePage() {
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Format</dt>
                     <dd className="mt-1 text-sm text-gray-900">{tape.format}</dd>
+                  </div>
+                )}
+                {tape.edition && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Edition</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.edition}</dd>
+                  </div>
+                )}
+                {tape.runningTime && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Running Time</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.runningTime} minutes</dd>
+                  </div>
+                )}
+                {tape.videoStandard && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Video Standard</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.videoStandard}</dd>
+                  </div>
+                )}
+                {tape.audioType && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Audio Type</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.audioType}</dd>
+                  </div>
+                )}
+                {tape.packagingType && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Packaging Type</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.packagingType}</dd>
+                  </div>
+                )}
+                {tape.distributor && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Distributor</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.distributor}</dd>
+                  </div>
+                )}
+                {tape.productionCompany && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Production Company</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.productionCompany}</dd>
+                  </div>
+                )}
+                {tape.catalogNumber && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Catalog Number</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.catalogNumber}</dd>
+                  </div>
+                )}
+                {tape.upcBarcode && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">UPC Barcode</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.upcBarcode}</dd>
+                  </div>
+                )}
+                {tape.rating && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Rating</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.rating}</dd>
+                  </div>
+                )}
+                {tape.languages && tape.languages.length > 0 && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Languages</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.languages.join(', ')}</dd>
+                  </div>
+                )}
+                {tape.subtitles && tape.subtitles.length > 0 && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Subtitles</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.subtitles.join(', ')}</dd>
+                  </div>
+                )}
+                {tape.specialFeatures && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Special Features</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.specialFeatures}</dd>
+                  </div>
+                )}
+                {tape.physicalCondition && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Physical Condition</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{tape.physicalCondition}</dd>
                   </div>
                 )}
               </dl>

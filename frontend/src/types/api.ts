@@ -44,6 +44,22 @@ export interface Tape {
   boxSet?: BoxSet;
   createdAt: string;
   updatedAt: string;
+  edition?: string;
+  releaseYear?: number;
+  vhsReleaseYear?: number;
+  runningTime?: number;
+  videoStandard?: 'NTSC' | 'PAL' | 'SECAM' | 'Other';
+  audioType?: string;
+  packagingType?: 'slipcase' | 'clamshell' | 'big_box' | 'other';
+  distributor?: string;
+  productionCompany?: string;
+  catalogNumber?: string;
+  upcBarcode?: string;
+  rating?: string;
+  languages?: string[];
+  subtitles?: string[];
+  specialFeatures?: string;
+  physicalCondition?: string;
 }
 
 export interface WantlistItem {
