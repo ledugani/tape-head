@@ -56,7 +56,7 @@ model Tape {
   catalogNumber     String?
   distributor       String?
   edition           String?
-  languages         String[]
+  languages         String[]         @default([])
   packagingType     PackagingType?
   physicalCondition String?
   productionCompany String?
@@ -64,7 +64,7 @@ model Tape {
   releaseYear       Int?
   runningTime       Int?
   specialFeatures   String?
-  subtitles         String[]
+  subtitles         String[]         @default([])
   upcBarcode        String?
   vhsReleaseYear    Int?
   videoStandard     VideoStandard?
