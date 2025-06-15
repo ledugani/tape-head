@@ -28,7 +28,7 @@ export default function LoginPage() {
       await login(email, password, rememberMe);
       router.replace('/dashboard');
     } catch (err: any) {
-      setError(err?.message || 'Login failed');
+      setError(err?.message || 'Something went wrong. Please try again later.');
     } finally {
       setSubmitting(false);
     }

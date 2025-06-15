@@ -316,7 +316,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       return userData;
     } catch (error) {
       console.debug('[AuthContext] Login failed:', error);
-      throw error;
+      
+      // Clear any existing auth state
+      removeToken();
+      setIsAuthenticated(false);
+      setUser(null);
+      
+      // Preserve the user-friendly error message from the API
+      if (error instanceof Error) {
+        throw error;
+      }
+      // For any other errors, show a generic message
+      throw new Error('Something went wrong. Please try again later.');
     }
   };
 

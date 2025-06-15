@@ -50,16 +50,40 @@ api.interceptors.response.use(
         ? error.response.data.message
         : '';
 
-    // Check for session expiration
-    const isSessionExpired = 
+    // Check for auth errors (401, 404) or session expiration
+    const isAuthError = 
       error.response.status === 401 || 
-      error.response.status === 403 ||
+      error.response.status === 404 ||
       (errorMsg && (
         errorMsg.toLowerCase().includes('session expired') ||
-        errorMsg.toLowerCase().includes('token expired')
+        errorMsg.toLowerCase().includes('token expired') ||
+        errorMsg.toLowerCase().includes('account not found') ||
+        errorMsg.toLowerCase().includes('password incorrect')
       ));
 
-    if (isSessionExpired) {
+    // If this is a login request that failed, handle it specially
+    if (isAuthError && originalRequest.url?.includes('/auth/login')) {
+      // Clear any existing tokens
+      Cookies.remove('token', { path: '/' });
+      Cookies.remove('refresh_token', { path: '/' });
+      Cookies.remove('token_expiry', { path: '/' });
+
+      // Show user-friendly error message
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast({
+          title: 'Login Failed',
+          description: 'Account not found or password incorrect.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+
+      return Promise.reject(error);
+    }
+
+    // Handle session expiration for non-login requests
+    if (isAuthError) {
       originalRequest._retry = true;
 
       try {
@@ -75,20 +99,8 @@ api.interceptors.response.use(
         // Update authorization header
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-        try {
-          // Retry original request and return its result
-          const retryResponse = await api(originalRequest);
-          return retryResponse;
-        } catch (retryError) {
-          // If retry fails, ensure we preserve the error message
-          if (retryError instanceof Error) {
-            return Promise.reject(retryError);
-          }
-          // If it's not an Error instance, create one with the error message
-          const error = new Error(retryError.response?.data?.error || 'Server error') as AxiosError;
-          error.response = retryError.response;
-          return Promise.reject(error);
-        }
+        // Retry original request
+        return api(originalRequest);
       } catch (refreshError) {
         // Clear auth state
         Cookies.remove('token', { path: '/' });
@@ -110,12 +122,11 @@ api.interceptors.response.use(
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
         window.location.href = `/login?returnTo=${returnUrl}`;
 
-        // Always propagate the refresh error
         return Promise.reject(refreshError);
       }
     }
 
-    // For non-session errors, propagate the original error
+    // For non-auth errors, propagate the original error
     return Promise.reject(error);
   }
 );
@@ -189,30 +200,51 @@ export async function login(email: string, password: string): Promise<{
     email: string;
   };
 }> {
-  const response = await api.post('/auth/login', { email, password });
-  
-  if (!response.data.success) {
-    throw new ApiError(
-      response.data.error || 'Login failed',
-      response.status
-    );
+  try {
+    const response = await api.post('/auth/login', { email, password });
+    
+    if (!response.data.success) {
+      throw new ApiError(
+        response.data.error || 'Something went wrong. Please try again later.',
+        response.status
+      );
+    }
+
+    const { accessToken, refreshToken, expiresIn, user } = response.data.data;
+    
+    // Store tokens in cookies
+    const cookieOptions = {
+      path: '/',
+      maxAge: expiresIn,
+      sameSite: 'Lax' as const,
+      secure: true
+    };
+
+    Cookies.set('token', accessToken, cookieOptions);
+    Cookies.set('refresh_token', refreshToken, cookieOptions);
+    Cookies.set('token_expiry', String(Date.now() + expiresIn * 1000), cookieOptions);
+
+    return response.data.data;
+  } catch (error) {
+    // Clear any existing tokens on login failure
+    Cookies.remove('token', { path: '/' });
+    Cookies.remove('refresh_token', { path: '/' });
+    Cookies.remove('token_expiry', { path: '/' });
+
+    // Map technical errors to user-friendly messages
+    if (error instanceof AxiosError) {
+      if (error.response?.status === 401) {
+        throw new ApiError('Incorrect email or password. Please try again.', 401);
+      }
+      if (error.response?.status === 404) {
+        throw new ApiError('Account not found. Please check your email or sign up.', 404);
+      }
+      // For any other error (including network errors)
+      throw new ApiError('Something went wrong. Please try again later.', error.response?.status || 500);
+    }
+    // For unknown errors
+    throw new ApiError('Something went wrong. Please try again later.', 500);
   }
-
-  const { accessToken, refreshToken, expiresIn, user } = response.data.data;
-  
-  // Store tokens in cookies
-  const cookieOptions = {
-    path: '/',
-    maxAge: expiresIn,
-    sameSite: 'Lax' as const,
-    secure: true
-  };
-
-  Cookies.set('token', accessToken, cookieOptions);
-  Cookies.set('refresh_token', refreshToken, cookieOptions);
-  Cookies.set('token_expiry', String(Date.now() + expiresIn * 1000), cookieOptions);
-
-  return response.data.data;
 }
 
 // Get the offline context
