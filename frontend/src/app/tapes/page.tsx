@@ -13,15 +13,23 @@ export default function TapesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const fetchTapes = useCallback(async (search?: string) => {
     try {
       setLoading(true);
       setError(null);
+      setSearchError(null);
       const data = await getTapes(search);
       setTapes(data);
     } catch (err) {
-      setError('Failed to load tapes');
+      const errorMessage = search 
+        ? 'Failed to search tapes. Please try again.'
+        : 'Failed to load tapes';
+      setError(errorMessage);
+      if (search) {
+        setSearchError(errorMessage);
+      }
       console.error('Error fetching tapes:', err);
     } finally {
       setLoading(false);
@@ -38,6 +46,7 @@ export default function TapesPage() {
   const debouncedSearch = useCallback(
     debounce((query: string) => {
       setIsSearching(true);
+      setSearchError(null);
       fetchTapes(query);
     }, 300),
     [fetchTapes]
@@ -47,6 +56,7 @@ export default function TapesPage() {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
+    setSearchError(null);
     if (query.trim()) {
       debouncedSearch(query);
     } else {
@@ -55,7 +65,7 @@ export default function TapesPage() {
     }
   };
 
-  if (error) return (
+  if (error && !searchQuery) return (
     <div className="container mx-auto px-4 py-8">
       <div className="text-red-600 bg-red-50 p-4 rounded-md">
         {error}
@@ -68,6 +78,11 @@ export default function TapesPage() {
       <h1 className="text-3xl font-bold mb-8">VHS Tapes</h1>
       
       <div className="mb-8">
+        {searchError && (
+          <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-md">
+            {searchError}
+          </div>
+        )}
         <label htmlFor="tape-search" className="sr-only">
           Search tapes
         </label>
@@ -79,8 +94,12 @@ export default function TapesPage() {
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="Search tapes..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              searchError ? 'border-red-300' : 'border-gray-300'
+            }`}
             aria-label="Search tapes"
+            aria-invalid={!!searchError}
+            aria-describedby={searchError ? 'search-error' : undefined}
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
             {isSearching ? (
