@@ -6,6 +6,7 @@ import { getTape } from '@/api/client';
 import type { Tape } from '@/types/api';
 import Image from 'next/image';
 import Link from 'next/link';
+import { TapeDetailsAccordion } from '@/components/TapeDetailsAccordion';
 
 export default function TapePage() {
   const { id } = useParams();
@@ -134,35 +135,7 @@ export default function TapePage() {
           <h1 className="text-3xl font-bold mb-4">{tape.title}</h1>
           
           <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold mb-2">Details</h2>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {tape.year && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Release Year</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{tape.year}</dd>
-                  </div>
-                )}
-                {tape.genre && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Genre</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{tape.genre}</dd>
-                  </div>
-                )}
-                {tape.label && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Label</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{tape.label}</dd>
-                  </div>
-                )}
-                {tape.format && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Format</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{tape.format}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
+            <TapeDetailsAccordion tape={tape} />
 
             {tape.notes && (
               <div>

@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { formatApiError, UserFriendlyError } from './errorHandling';
+import { getFriendlyErrorMessage } from './getFriendlyErrorMessage';
 
 interface User {
   id: number;
@@ -316,7 +318,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       return userData;
     } catch (error) {
       console.debug('[AuthContext] Login failed:', error);
-      throw error;
+      
+      // Clear any existing auth state
+      removeToken();
+      setIsAuthenticated(false);
+      setUser(null);
+      
+      // Format the error with user-friendly message
+      throw new Error(getFriendlyErrorMessage(error, 'login'));
     }
   };
 

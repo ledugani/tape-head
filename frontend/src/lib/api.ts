@@ -2,6 +2,8 @@ import axios from 'axios';
 import type { User, Publisher, BoxSet, Tape, WantlistItem, CollectionItem } from '@/types/api';
 import Cookies from 'js-cookie';
 import { AxiosError } from 'axios';
+import { formatApiError, isAuthError, UserFriendlyError } from './errorHandling';
+import { getFriendlyErrorMessage } from './getFriendlyErrorMessage';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -35,31 +37,28 @@ api.interceptors.response.use(
 
     // If no original request or already retried, propagate error
     if (!originalRequest || originalRequest._retry) {
-      return Promise.reject(error);
+      const context = originalRequest?.url?.includes('/auth/login') ? 'login' : undefined;
+      throw new Error(getFriendlyErrorMessage(error, context));
     }
 
     // Check if error has response and data
     if (!error.response?.data) {
-      return Promise.reject(error);
+      const context = originalRequest?.url?.includes('/auth/login') ? 'login' : undefined;
+      throw new Error(getFriendlyErrorMessage(error, context));
     }
 
-    // Get error message with defensive check
-    const errorMsg = typeof error.response.data.error === 'string' 
-      ? error.response.data.error 
-      : typeof error.response.data.message === 'string'
-        ? error.response.data.message
-        : '';
+    // If this is a login request that failed, handle it specially
+    if (error.response?.status === 401 && originalRequest.url?.includes('/auth/login')) {
+      // Clear any existing tokens
+      Cookies.remove('token', { path: '/' });
+      Cookies.remove('refresh_token', { path: '/' });
+      Cookies.remove('token_expiry', { path: '/' });
 
-    // Check for session expiration
-    const isSessionExpired = 
-      error.response.status === 401 || 
-      error.response.status === 403 ||
-      (errorMsg && (
-        errorMsg.toLowerCase().includes('session expired') ||
-        errorMsg.toLowerCase().includes('token expired')
-      ));
+      throw new Error(getFriendlyErrorMessage(error, 'login'));
+    }
 
-    if (isSessionExpired) {
+    // Handle session expiration for non-login requests
+    if (error.response?.status === 401) {
       originalRequest._retry = true;
 
       try {
@@ -75,20 +74,8 @@ api.interceptors.response.use(
         // Update authorization header
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-        try {
-          // Retry original request and return its result
-          const retryResponse = await api(originalRequest);
-          return retryResponse;
-        } catch (retryError) {
-          // If retry fails, ensure we preserve the error message
-          if (retryError instanceof Error) {
-            return Promise.reject(retryError);
-          }
-          // If it's not an Error instance, create one with the error message
-          const error = new Error(retryError.response?.data?.error || 'Server error') as AxiosError;
-          error.response = retryError.response;
-          return Promise.reject(error);
-        }
+        // Retry original request
+        return api(originalRequest);
       } catch (refreshError) {
         // Clear auth state
         Cookies.remove('token', { path: '/' });
@@ -110,13 +97,13 @@ api.interceptors.response.use(
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
         window.location.href = `/login?returnTo=${returnUrl}`;
 
-        // Always propagate the refresh error
-        return Promise.reject(refreshError);
+        throw new Error(getFriendlyErrorMessage(refreshError));
       }
     }
 
-    // For non-session errors, propagate the original error
-    return Promise.reject(error);
+    // For all other errors, format and propagate
+    const context = originalRequest?.url?.includes('/auth/login') ? 'login' : undefined;
+    throw new Error(getFriendlyErrorMessage(error, context));
   }
 );
 
@@ -189,30 +176,51 @@ export async function login(email: string, password: string): Promise<{
     email: string;
   };
 }> {
-  const response = await api.post('/auth/login', { email, password });
-  
-  if (!response.data.success) {
-    throw new ApiError(
-      response.data.error || 'Login failed',
-      response.status
-    );
+  try {
+    const response = await api.post('/auth/login', { email, password });
+    
+    if (!response.data.success) {
+      throw new ApiError(
+        response.data.error || 'Something went wrong. Please try again later.',
+        response.status
+      );
+    }
+
+    const { accessToken, refreshToken, expiresIn, user } = response.data.data;
+    
+    // Store tokens in cookies
+    const cookieOptions = {
+      path: '/',
+      maxAge: expiresIn,
+      sameSite: 'Lax' as const,
+      secure: true
+    };
+
+    Cookies.set('token', accessToken, cookieOptions);
+    Cookies.set('refresh_token', refreshToken, cookieOptions);
+    Cookies.set('token_expiry', String(Date.now() + expiresIn * 1000), cookieOptions);
+
+    return response.data.data;
+  } catch (error) {
+    // Clear any existing tokens on login failure
+    Cookies.remove('token', { path: '/' });
+    Cookies.remove('refresh_token', { path: '/' });
+    Cookies.remove('token_expiry', { path: '/' });
+
+    // Map technical errors to user-friendly messages
+    if (error instanceof AxiosError) {
+      if (error.response?.status === 401) {
+        throw new ApiError('Incorrect email or password. Please try again.', 401);
+      }
+      if (error.response?.status === 404) {
+        throw new ApiError('Account not found. Please check your email or sign up.', 404);
+      }
+      // For any other error (including network errors)
+      throw new ApiError('Something went wrong. Please try again later.', error.response?.status || 500);
+    }
+    // For unknown errors
+    throw new ApiError('Something went wrong. Please try again later.', 500);
   }
-
-  const { accessToken, refreshToken, expiresIn, user } = response.data.data;
-  
-  // Store tokens in cookies
-  const cookieOptions = {
-    path: '/',
-    maxAge: expiresIn,
-    sameSite: 'Lax' as const,
-    secure: true
-  };
-
-  Cookies.set('token', accessToken, cookieOptions);
-  Cookies.set('refresh_token', refreshToken, cookieOptions);
-  Cookies.set('token_expiry', String(Date.now() + expiresIn * 1000), cookieOptions);
-
-  return response.data.data;
 }
 
 // Get the offline context

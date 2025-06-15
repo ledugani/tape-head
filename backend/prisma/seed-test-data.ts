@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, VideoStandard, PackagingType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -40,7 +40,23 @@ async function main() {
       format: 'VHS',
       label: '20th Century Fox',
       coverImage: 'https://example.com/new-hope.jpg',
-      boxSetId: testBoxSet.id
+      boxSetId: testBoxSet.id,
+      edition: 'Special Edition',
+      releaseYear: 1977,
+      vhsReleaseYear: 1995,
+      runningTime: 125,
+      videoStandard: VideoStandard.NTSC,
+      audioType: 'Dolby Surround',
+      packagingType: PackagingType.slipcase,
+      distributor: '20th Century Fox Home Entertainment',
+      productionCompany: 'Lucasfilm Ltd.',
+      catalogNumber: 'FOX-1001',
+      upcBarcode: '024543000123',
+      rating: 'PG',
+      languages: ['English'],
+      subtitles: ['Spanish'],
+      specialFeatures: 'Behind the scenes documentary',
+      physicalCondition: 'Good'
     },
     {
       title: 'Star Wars: The Empire Strikes Back',
@@ -49,7 +65,23 @@ async function main() {
       format: 'VHS',
       label: '20th Century Fox',
       coverImage: 'https://example.com/empire.jpg',
-      boxSetId: testBoxSet.id
+      boxSetId: testBoxSet.id,
+      edition: 'Special Edition',
+      releaseYear: 1980,
+      vhsReleaseYear: 1995,
+      runningTime: 127,
+      videoStandard: VideoStandard.NTSC,
+      audioType: 'Dolby Surround',
+      packagingType: PackagingType.slipcase,
+      distributor: '20th Century Fox Home Entertainment',
+      productionCompany: 'Lucasfilm Ltd.',
+      catalogNumber: 'FOX-1002',
+      upcBarcode: '024543000230',
+      rating: 'PG',
+      languages: ['English'],
+      subtitles: ['Spanish'],
+      specialFeatures: 'Behind the scenes documentary',
+      physicalCondition: 'Good'
     },
     {
       title: 'Star Wars: Return of the Jedi',
@@ -58,7 +90,23 @@ async function main() {
       format: 'VHS',
       label: '20th Century Fox',
       coverImage: 'https://example.com/jedi.jpg',
-      boxSetId: testBoxSet.id
+      boxSetId: testBoxSet.id,
+      edition: 'Special Edition',
+      releaseYear: 1983,
+      vhsReleaseYear: 1995,
+      runningTime: 135,
+      videoStandard: VideoStandard.NTSC,
+      audioType: 'Dolby Surround',
+      packagingType: PackagingType.slipcase,
+      distributor: '20th Century Fox Home Entertainment',
+      productionCompany: 'Lucasfilm Ltd.',
+      catalogNumber: 'FOX-1003',
+      upcBarcode: '024543000347',
+      rating: 'PG',
+      languages: ['English'],
+      subtitles: ['Spanish'],
+      specialFeatures: 'Behind the scenes documentary',
+      physicalCondition: 'Good'
     }
   ];
 
