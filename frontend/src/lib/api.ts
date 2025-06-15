@@ -68,18 +68,9 @@ api.interceptors.response.use(
       Cookies.remove('refresh_token', { path: '/' });
       Cookies.remove('token_expiry', { path: '/' });
 
-      // Show user-friendly error message
-      if (typeof window !== 'undefined' && window.toast) {
-        window.toast({
-          title: 'Login Failed',
-          description: 'Account not found or password incorrect.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
-      }
-
-      return Promise.reject(error);
+      // Create a new error with user-friendly message
+      const userFriendlyError = new Error('Incorrect email or password.');
+      return Promise.reject(userFriendlyError);
     }
 
     // Handle session expiration for non-login requests
