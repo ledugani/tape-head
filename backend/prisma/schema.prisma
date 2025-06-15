@@ -40,22 +40,54 @@ model BoxSet {
   tapes       Tape[]   @relation("BoxSetTapes")
 }
 
+enum VideoStandard {
+  NTSC
+  PAL
+  SECAM
+  Other
+}
+
+enum PackagingType {
+  slipcase
+  clamshell
+  big_box
+  other
+}
+
 model Tape {
-  id          Int              @id @default(autoincrement())
-  title       String
-  year        Int?
-  genre       String?
-  format      String?
-  label       String?
-  coverImage  String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  boxSetId    Int?
-  publisherId String?
-  boxSet      BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
-  publisher   Publisher?       @relation(fields: [publisherId], references: [id])
-  collections UserCollection[]
-  wantlist    UserWantlist[]
+  id               Int              @id @default(autoincrement())
+  title            String
+  year             Int?
+  genre            String?
+  format           String?
+  label            String?
+  coverImage       String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  boxSetId         Int?
+  publisherId      String?
+  boxSet           BoxSet?          @relation("BoxSetTapes", fields: [boxSetId], references: [id])
+  publisher        Publisher?       @relation(fields: [publisherId], references: [id])
+  collections      UserCollection[]
+  wantlist         UserWantlist[]
+
+  // New fields for comprehensive VHS cataloging
+  edition          String?
+  releaseYear      Int
+  vhsReleaseYear   Int
+  runningTime      Int
+  videoStandard    VideoStandard
+  audioType        String
+  packagingType    PackagingType
+  distributor      String
+  productionCompany String
+  catalogNumber    String
+  upcBarcode       String
+  rating           String
+  languages        String[]
+  subtitles        String[]
+  specialFeatures  String?
+  physicalCondition String?
 
   @@unique([title, year])
 }
