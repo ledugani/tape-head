@@ -3,8 +3,12 @@ import { Tape } from '@/types/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-export const getTapes = async (): Promise<Tape[]> => {
-  const response = await fetch(`${API_URL}/tapes`);
+export const getTapes = async (search?: string): Promise<Tape[]> => {
+  const url = new URL(`${API_URL}/tapes`);
+  if (search) {
+    url.searchParams.append('search', search);
+  }
+  const response = await fetch(url.toString());
   if (!response.ok) {
     throw new Error('Failed to fetch tapes');
   }
