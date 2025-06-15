@@ -11,6 +11,20 @@ export const register = async (req: Request<{}, {}, RegisterInput>, res: Respons
   try {
     const { username, email, password } = req.body;
 
+    // Validate required fields
+    if (!username || !email || !password) {
+      return res.status(400).json({ 
+        error: 'Username, email, and password are required.' 
+      });
+    }
+
+    // Validate username format
+    if (username.length < 3 || username.length > 30) {
+      return res.status(400).json({ 
+        error: 'Username must be between 3 and 30 characters.' 
+      });
+    }
+
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -53,6 +67,7 @@ export const register = async (req: Request<{}, {}, RegisterInput>, res: Respons
     // Return user (excluding password) and tokens
     const { passwordHash: _, ...userWithoutPassword } = user;
     res.status(201).json({ 
+      success: true,
       user: userWithoutPassword, 
       accessToken,
       refreshToken,

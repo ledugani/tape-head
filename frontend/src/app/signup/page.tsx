@@ -9,6 +9,7 @@ import Link from 'next/link';
 export default function SignUpPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,8 +27,15 @@ export default function SignUpPage() {
       return;
     }
 
+    if (!username.trim()) {
+      setError('Username is required');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const response = await api.post('/auth/register', {
+        username,
         email,
         password,
       });
@@ -72,6 +80,23 @@ export default function SignUpPage() {
               <span className="block sm:inline">{error}</span>
             </div>
           )}
+
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              required
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Choose a username"
+            />
+          </div>
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">

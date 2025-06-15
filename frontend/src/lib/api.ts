@@ -3,6 +3,7 @@ import type { User, Publisher, BoxSet, Tape, WantlistItem, CollectionItem } from
 import Cookies from 'js-cookie';
 import { AxiosError } from 'axios';
 import { formatApiError, isAuthError, UserFriendlyError } from './errorHandling';
+import { getFriendlyErrorMessage } from './getFriendlyErrorMessage';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -36,26 +37,28 @@ api.interceptors.response.use(
 
     // If no original request or already retried, propagate error
     if (!originalRequest || originalRequest._retry) {
-      return Promise.reject(formatApiError(error));
+      const context = originalRequest?.url?.includes('/auth/login') ? 'login' : undefined;
+      throw new Error(getFriendlyErrorMessage(error, context));
     }
 
     // Check if error has response and data
     if (!error.response?.data) {
-      return Promise.reject(formatApiError(error));
+      const context = originalRequest?.url?.includes('/auth/login') ? 'login' : undefined;
+      throw new Error(getFriendlyErrorMessage(error, context));
     }
 
     // If this is a login request that failed, handle it specially
-    if (isAuthError(error) && originalRequest.url?.includes('/auth/login')) {
+    if (error.response?.status === 401 && originalRequest.url?.includes('/auth/login')) {
       // Clear any existing tokens
       Cookies.remove('token', { path: '/' });
       Cookies.remove('refresh_token', { path: '/' });
       Cookies.remove('token_expiry', { path: '/' });
 
-      return Promise.reject(formatApiError(error));
+      throw new Error(getFriendlyErrorMessage(error, 'login'));
     }
 
     // Handle session expiration for non-login requests
-    if (isAuthError(error)) {
+    if (error.response?.status === 401) {
       originalRequest._retry = true;
 
       try {
@@ -94,12 +97,13 @@ api.interceptors.response.use(
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
         window.location.href = `/login?returnTo=${returnUrl}`;
 
-        return Promise.reject(formatApiError(refreshError));
+        throw new Error(getFriendlyErrorMessage(refreshError));
       }
     }
 
     // For all other errors, format and propagate
-    return Promise.reject(formatApiError(error));
+    const context = originalRequest?.url?.includes('/auth/login') ? 'login' : undefined;
+    throw new Error(getFriendlyErrorMessage(error, context));
   }
 );
 
