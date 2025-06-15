@@ -2,6 +2,7 @@ import axios from 'axios';
 import type { User, Publisher, BoxSet, Tape, WantlistItem, CollectionItem } from '@/types/api';
 import Cookies from 'js-cookie';
 import { AxiosError } from 'axios';
+import { formatApiError, isAuthError, UserFriendlyError } from './errorHandling';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -35,46 +36,26 @@ api.interceptors.response.use(
 
     // If no original request or already retried, propagate error
     if (!originalRequest || originalRequest._retry) {
-      return Promise.reject(error);
+      return Promise.reject(formatApiError(error));
     }
 
     // Check if error has response and data
     if (!error.response?.data) {
-      return Promise.reject(error);
+      return Promise.reject(formatApiError(error));
     }
 
-    // Get error message with defensive check
-    const errorMsg = typeof error.response.data.error === 'string' 
-      ? error.response.data.error 
-      : typeof error.response.data.message === 'string'
-        ? error.response.data.message
-        : '';
-
-    // Check for auth errors (401, 404) or session expiration
-    const isAuthError = 
-      error.response.status === 401 || 
-      error.response.status === 404 ||
-      (errorMsg && (
-        errorMsg.toLowerCase().includes('session expired') ||
-        errorMsg.toLowerCase().includes('token expired') ||
-        errorMsg.toLowerCase().includes('account not found') ||
-        errorMsg.toLowerCase().includes('password incorrect')
-      ));
-
     // If this is a login request that failed, handle it specially
-    if (isAuthError && originalRequest.url?.includes('/auth/login')) {
+    if (isAuthError(error) && originalRequest.url?.includes('/auth/login')) {
       // Clear any existing tokens
       Cookies.remove('token', { path: '/' });
       Cookies.remove('refresh_token', { path: '/' });
       Cookies.remove('token_expiry', { path: '/' });
 
-      // Create a new error with user-friendly message
-      const userFriendlyError = new Error('Incorrect email or password.');
-      return Promise.reject(userFriendlyError);
+      return Promise.reject(formatApiError(error));
     }
 
     // Handle session expiration for non-login requests
-    if (isAuthError) {
+    if (isAuthError(error)) {
       originalRequest._retry = true;
 
       try {
@@ -113,12 +94,12 @@ api.interceptors.response.use(
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
         window.location.href = `/login?returnTo=${returnUrl}`;
 
-        return Promise.reject(refreshError);
+        return Promise.reject(formatApiError(refreshError));
       }
     }
 
-    // For non-auth errors, propagate the original error
-    return Promise.reject(error);
+    // For all other errors, format and propagate
+    return Promise.reject(formatApiError(error));
   }
 );
 

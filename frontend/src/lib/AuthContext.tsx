@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { formatApiError, UserFriendlyError } from './errorHandling';
 
 interface User {
   id: number;
@@ -298,7 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const login = async (email: string, password: string, rememberMe: boolean): Promise<User> => {
     console.debug('[AuthContext] Login attempt:', { email, rememberMe });
-    if (!mounted) throw new Error('Not mounted');
+    if (!mounted) throw new UserFriendlyError('Not mounted');
     
     try {
       const response = await api.post('/auth/login', { email, password });
@@ -322,8 +323,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       setIsAuthenticated(false);
       setUser(null);
       
-      // For any login error, show the same message to prevent user enumeration
-      throw new Error('Incorrect email or password.');
+      // Format the error with user-friendly message
+      throw formatApiError(error);
     }
   };
 
